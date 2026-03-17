@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncGuard | Adaptive Safety</title>
+    <style>
+        :root {
+            --safe-color: #2ecc71;
+            --caution-color: #f1c40f;
+            --critical-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; color: #34495e; }
+        p.subtitle { color: var(--text-muted); margin-top: 5px; }
+        
+        /* NEW: Top Status Bar */
+        .status-bar {
+            background: var(--card-bg);
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        .time-date { color: #34495e; }
+        .system-status { display: flex; gap: 20px; }
+        .status-online { color: var(--safe-color); }
+        .status-offline { color: var(--critical-color); }
+        .last-update { color: var(--text-muted); font-weight: normal; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .card h2 {
+            font-size: 1.2rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        /* Sensor Data Styles */
+        .sensor-data {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        .sensor-value { font-weight: bold; }
+        
+        /* AI Decision Styles */
+        .ai-status {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            transition: background-color 0.3s ease;
+        }
+        .status-safe { background-color: var(--safe-color); }
+        .status-caution { background-color: var(--caution-color); color: #333; }
+        .status-critical { background-color: var(--critical-color); }
+        
+        .decision-log {
+            background: #eee;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-family: monospace;
+        }
+
+        /* Actuator & Button Styles */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+        .btn-close { background-color: var(--critical-color); color: white; }
+        .btn-open { background-color: #3498db; color: white; }
+        .btn-simulate { background-color: #9b59b6; color: white; margin-top: 10px; width: 100%;}
+        
+        .actuator-status {
+            margin-top: 15px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SyncGuard Dashboard</h1>
+        <p class="subtitle">AI-Driven Smart Home Automation System for Adaptive Safety</p>
+    </header>
+
+    <div class="status-bar">
+        <div class="time-date">
+            <span id="current-date">--/--/----</span> | <span id="current-time">--:--:--</span>
+        </div>
+        <div class="system-status">
+            <div>Status: <span id="conn-status" class="status-offline">● WAITING FOR DATA</span></div>
+            <div class="last-update">Last Reported: <span id="last-reported">--:--:--</span></div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            <h2>Local Micro-Climate (ESP32)</h2>
+            <div class="sensor-data">
+                <span>Temperature:</span>
+                <span class="sensor-value" id="temp-val">-- °C</span>
+            </div>
+            <div class="sensor-data">
+                <span>Humidity:</span>
+                <span class="sensor-value" id="hum-val">-- %</span>
+            </div>
+            <div class="sensor-data">
+                <span>Rain Sensor (Analog):</span>
+                <span class="sensor-value" id="rain-val">--</span>
+            </div>
+            <p style="font-size: 0.8rem; color: #7f8c8d;">Device ID: living_room_1</p>
+        </div>
+
+        <div class="card">
+            <h2>Global Macro-Climate (API)</h2>
+            <div class="sensor-data">
+                <span>Forecast Status:</span>
+                <span class="sensor-value" id="api-status">--</span>
+            </div>
+            <div class="sensor-data">
+                <span>Verification Match:</span>
+                <span class="sensor-value" id="verification-match" style="color: #7f8c8d;">--</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>AI Risk Engine</h2>
+            <div id="ai-state" class="ai-status" style="background-color: #bdc3c7; color: #333;">
+                STANDBY
+            </div>
+            
+            <p><strong>Decision Visualization:</strong></p>
+            <div class="decision-log" id="decision-log">
+                > System initialized.<br>
+                > Awaiting telemetry from MQTT Broker...
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Actuator Control</h2>
+            <div class="actuator-status">
+                Window Servo Status: <span id="servo-status" style="color: #7f8c8d;">UNKNOWN</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn-close" onclick="manualOverride('FORCE CLOSE')">FORCE CLOSE</button>
+                <button class="btn-open" onclick="manualOverride('FORCE OPEN')">FORCE OPEN</button>
+            </div>
+            
+            <button class="btn-simulate" onclick="simulateIncomingData()">Simulate Incoming Data</button>
+            
+            <p style="font-size: 0.8rem; margin-top: 15px; text-align: center;">Overrides ML Logic via MQTT Command Topic</p>
+        </div>
+    </div>
+
+    <script>
+        // --- LIVE CLOCK LOGIC ---
+        function startClock() {
+            setInterval(() => {
+                const now = new Date();
+                // Format Date (e.g., 13/03/2026)
+                document.getElementById('current-date').innerText = now.toLocaleDateString('en-GB');
+                // Format Time (e.g., 14:50:26)
+                document.getElementById('current-time').innerText = now.toLocaleTimeString('en-GB');
+            }, 1000);
+        }
+
+        // --- SYSTEM LOGGING & WATCHDOG UTILITY ---
+        let watchdogTimer;
+
+        function getTimestamp() {
+            const now = new Date();
+            return now.toISOString().split('T')[1].slice(0, -1); 
+        }
+
+        function resetWatchdog() {
+            const statusEl = document.getElementById('conn-status');
+            
+            // Mark as online when data is received
+            statusEl.innerText = '● ONLINE';
+            statusEl.className = 'status-online';
+            
+            // Clear previous timer
+            clearTimeout(watchdogTimer);
+            
+            // If no new data is received in 15 seconds, mark as offline
+            watchdogTimer = setTimeout(() => {
+                statusEl.innerText = '● OFFLINE';
+                statusEl.className = 'status-offline';
+                console.warn(`[${getTimestamp()}] ⚠️ SYSTEM OFFLINE: Connection to MQTT Broker lost. Dashboard data is frozen.`);
+            }, 15000);
+        }
+
+        // --- MAIN UPDATE FUNCTION ---
+        function updateDashboard(temp, humidity, rainStatus, apiWeather, aiState, logText) {
+            // Update Last Reported Time
+            document.getElementById('last-reported').innerText = new Date().toLocaleTimeString('en-GB');
+            resetWatchdog();
+
+            // System Logging
+            console.group(`[${getTimestamp()}] 📥 MQTT Telemetry Received`);
+            console.info(`Data Payload: { temp: ${temp}, humidity: ${humidity}, rain: "${rainStatus}" }`);
+            console.info(`API Weather Sync: "${apiWeather}"`);
+            console.log(`⚙️ AI Engine Classification: %c${aiState}`, 'font-weight: bold; color: ' + 
+                (aiState === 'SAFE' ? '#2ecc71' : aiState === 'CAUTION' ? '#f1c40f' : '#e74c3c'));
+            console.groupEnd();
+
+            // UI UPDATE LOGIC
+            document.getElementById('temp-val').innerText = temp + ' °C';
+            document.getElementById('hum-val').innerText = humidity + ' %';
+            document.getElementById('rain-val').innerText = rainStatus;
+            document.getElementById('api-status').innerText = apiWeather;
+            
+            const stateBox = document.getElementById('ai-state');
+            const servoStatus = document.getElementById('servo-status');
+            const verificationMatch = document.getElementById('verification-match');
+            
+            // Update Verification text logic
+            if (aiState === 'CAUTION') {
+                verificationMatch.innerText = 'Conflict Detected';
+                verificationMatch.style.color = '#e74c3c';
+            } else {
+                verificationMatch.innerText = 'Corroborated';
+                verificationMatch.style.color = '#2ecc71';
+            }
+
+            // Reset classes
+            stateBox.className = 'ai-status';
+            
+            if (aiState === 'SAFE') {
+                stateBox.classList.add('status-safe');
+                stateBox.innerText = 'SAFE';
+                servoStatus.innerText = 'OPEN';
+                servoStatus.style.color = '#2ecc71';
+            } else if (aiState === 'CAUTION') {
+                stateBox.classList.add('status-caution');
+                stateBox.innerText = 'CAUTION';
+                servoStatus.innerText = 'OPEN (Standby)';
+                servoStatus.style.color = '#f1c40f';
+            } else if (aiState === 'CRITICAL') {
+                stateBox.classList.add('status-critical');
+                stateBox.innerText = 'CRITICAL';
+                servoStatus.innerText = 'CLOSED';
+                servoStatus.style.color = '#e74c3c';
+            }
+            
+            document.getElementById('decision-log').innerHTML = logText;
+        }
+
+        // --- MANUAL OVERRIDE ---
+        function manualOverride(command) {
+            console.warn(`[${getTimestamp()}] ⚠️ USER OVERRIDE INITIATED: ${command}`);
+            alert("Sending MQTT Command: " + command);
+            
+            if (command === 'FORCE CLOSE') {
+                updateDashboard('--', '--', 'OVERRIDE', 'OVERRIDE', 'CRITICAL', '> User initiated FORCE CLOSE override.<br>> Ignoring sensor data.');
+            } else {
+                updateDashboard('--', '--', 'OVERRIDE', 'OVERRIDE', 'SAFE', '> User initiated FORCE OPEN override.<br>> System returned to SAFE state.');
+            }
+        }
+
+        // --- TEST SIMULATION FUNCTION ---
+        function simulateIncomingData() {
+            // Simulating Test Case CT-02: False Positive (Spill/Dew)
+            updateDashboard(
+                28.5, 
+                75, 
+                'WET (3500)', 
+                'Clear Sky', 
+                'CAUTION', 
+                '> Local sensor detects moisture.<br>> API reports clear weather.<br>> ML Classification: False Positive (Anomaly).<br>> Action: Alerting user. Actuators on standby.'
+            );
+        }
+
+        // Initialize script
+        startClock();
+        console.log(`[${getTimestamp()}] 🚀 SyncGuard Dashboard Initialized. Waiting for MQTT data...`);
+    </script>
+</body>
+</html>
