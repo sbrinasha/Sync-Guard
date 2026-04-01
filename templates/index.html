@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +15,7 @@
             --text-main: #2c3e50;
             --text-muted: #7f8c8d;
         }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
@@ -21,13 +23,22 @@
             margin: 0;
             padding: 20px;
         }
+
         header {
             text-align: center;
             margin-bottom: 20px;
         }
-        h1 { margin: 0; color: #34495e; }
-        p.subtitle { color: var(--text-muted); margin-top: 5px; }
-        
+
+        h1 {
+            margin: 0;
+            color: #34495e;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
         /* NEW: Top Status Bar */
         .status-bar {
             background: var(--card-bg);
@@ -35,18 +46,35 @@
             margin: 0 auto 20px auto;
             padding: 12px 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 0.95rem;
             font-weight: 600;
         }
-        .time-date { color: #34495e; }
-        .system-status { display: flex; gap: 20px; }
-        .status-online { color: var(--safe-color); }
-        .status-offline { color: var(--critical-color); }
-        .last-update { color: var(--text-muted); font-weight: normal; }
+
+        .time-date {
+            color: #34495e;
+        }
+
+        .system-status {
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-online {
+            color: var(--safe-color);
+        }
+
+        .status-offline {
+            color: var(--critical-color);
+        }
+
+        .last-update {
+            color: var(--text-muted);
+            font-weight: normal;
+        }
 
         .dashboard-grid {
             display: grid;
@@ -55,19 +83,21 @@
             max-width: 1200px;
             margin: 0 auto;
         }
+
         .card {
             background: var(--card-bg);
             border-radius: 10px;
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
+
         .card h2 {
             font-size: 1.2rem;
             border-bottom: 2px solid #eee;
             padding-bottom: 10px;
             margin-top: 0;
         }
-        
+
         /* Sensor Data Styles */
         .sensor-data {
             display: flex;
@@ -75,8 +105,11 @@
             margin-bottom: 15px;
             font-size: 1.1rem;
         }
-        .sensor-value { font-weight: bold; }
-        
+
+        .sensor-value {
+            font-weight: bold;
+        }
+
         /* AI Decision Styles */
         .ai-status {
             text-align: center;
@@ -88,10 +121,20 @@
             margin-bottom: 15px;
             transition: background-color 0.3s ease;
         }
-        .status-safe { background-color: var(--safe-color); }
-        .status-caution { background-color: var(--caution-color); color: #333; }
-        .status-critical { background-color: var(--critical-color); }
-        
+
+        .status-safe {
+            background-color: var(--safe-color);
+        }
+
+        .status-caution {
+            background-color: var(--caution-color);
+            color: #333;
+        }
+
+        .status-critical {
+            background-color: var(--critical-color);
+        }
+
         .decision-log {
             background: #eee;
             padding: 10px;
@@ -106,6 +149,7 @@
             gap: 10px;
             margin-top: 15px;
         }
+
         button {
             flex: 1;
             padding: 12px;
@@ -115,11 +159,28 @@
             cursor: pointer;
             transition: opacity 0.2s;
         }
-        button:hover { opacity: 0.8; }
-        .btn-close { background-color: var(--critical-color); color: white; }
-        .btn-open { background-color: #3498db; color: white; }
-        .btn-simulate { background-color: #9b59b6; color: white; margin-top: 10px; width: 100%;}
-        
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .btn-close {
+            background-color: var(--critical-color);
+            color: white;
+        }
+
+        .btn-open {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-simulate {
+            background-color: #9b59b6;
+            color: white;
+            margin-top: 10px;
+            width: 100%;
+        }
+
         .actuator-status {
             margin-top: 15px;
             font-weight: bold;
@@ -127,6 +188,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <header>
@@ -179,7 +241,7 @@
             <div id="ai-state" class="ai-status" style="background-color: #bdc3c7; color: #333;">
                 STANDBY
             </div>
-            
+
             <p><strong>Decision Visualization:</strong></p>
             <div class="decision-log" id="decision-log">
                 > System initialized.<br>
@@ -196,14 +258,95 @@
                 <button class="btn-close" onclick="manualOverride('FORCE CLOSE')">FORCE CLOSE</button>
                 <button class="btn-open" onclick="manualOverride('FORCE OPEN')">FORCE OPEN</button>
             </div>
-            
+
             <button class="btn-simulate" onclick="simulateIncomingData()">Simulate Incoming Data</button>
-            
-            <p style="font-size: 0.8rem; margin-top: 15px; text-align: center;">Overrides ML Logic via MQTT Command Topic</p>
+            <button class="btn-simulate" onclick="testESP32Button()"
+                style="background-color: #e67e22; margin-top: 10px;"> Test ESP32 LED Blink</button>
+
+            <p style="font-size: 0.8rem; margin-top: 15px; text-align: center;">Overrides ML Logic via MQTT Command
+                Topic</p>
+        </div>
+
+        <div class="card">
+            <h2>Console Log</h2>
+            <div style="background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;"
+                id="console-log">
+                > System initialized...<br>
+            </div>
         </div>
     </div>
 
+    <!-- Socket.IO for real-time updates -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
     <script>
+        // --- SOCKET.IO CONNECTION ---
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('🔌 Connected to Flask server');
+            socket.emit('request_status'); // Request current status on connect
+        });
+
+        socket.on('disconnect', () => {
+            console.log('🔌 Disconnected from Flask server');
+        });
+
+        // Listen for ESP32 status updates
+        socket.on('status_update', (data) => {
+            const statusEl = document.getElementById('conn-status');
+            const lastReportedEl = document.getElementById('last-reported');
+
+            if (data.online) {
+                statusEl.innerText = '● ONLINE';
+                statusEl.className = 'status-online';
+                console.log(`[${getTimestamp()}] ✅ ESP32 is ONLINE`);
+            } else {
+                statusEl.innerText = '● OFFLINE';
+                statusEl.className = 'status-offline';
+                console.log(`[${getTimestamp()}] ❌ ESP32 is OFFLINE`);
+            }
+
+            if (data.last_seen) {
+                lastReportedEl.innerText = data.last_seen;
+            }
+        });
+
+        // Listen for sensor data updates
+        socket.on('sensor_update', (data) => {
+            console.log(`[${getTimestamp()}] 📊 Sensor Data: ${data.value}`);
+            document.getElementById('last-reported').innerText = data.timestamp;
+            // You can update sensor displays here
+            document.getElementById('temp-val').innerText = data.value + ' °C';
+        });
+
+        // Listen for console log messages
+        socket.on('console_log', (data) => {
+            const consoleLog = document.getElementById('console-log');
+            const logEntry = document.createElement('span');
+            logEntry.innerHTML = data.message + '<br>';
+
+            // Color based on type
+            if (data.type === 'error') {
+                logEntry.style.color = '#ff4444';
+            } else if (data.type === 'warning') {
+                logEntry.style.color = '#ffaa00';
+            } else if (data.type === 'success') {
+                logEntry.style.color = '#00ff00';
+            } else {
+                logEntry.style.color = '#00aaff';
+            }
+
+            consoleLog.appendChild(logEntry);
+            consoleLog.scrollTop = consoleLog.scrollHeight; // Auto-scroll
+        });
+
+        // Function to test ESP32 button
+        function testESP32Button() {
+            console.log(`[${getTimestamp()}] Triggering ESP32 LED blink test...`);
+            socket.emit('button_test');
+        }
+
         // --- LIVE CLOCK LOGIC ---
         function startClock() {
             setInterval(() => {
@@ -220,19 +363,19 @@
 
         function getTimestamp() {
             const now = new Date();
-            return now.toISOString().split('T')[1].slice(0, -1); 
+            return now.toISOString().split('T')[1].slice(0, -1);
         }
 
         function resetWatchdog() {
             const statusEl = document.getElementById('conn-status');
-            
+
             // Mark as online when data is received
             statusEl.innerText = '● ONLINE';
             statusEl.className = 'status-online';
-            
+
             // Clear previous timer
             clearTimeout(watchdogTimer);
-            
+
             // If no new data is received in 15 seconds, mark as offline
             watchdogTimer = setTimeout(() => {
                 statusEl.innerText = '● OFFLINE';
@@ -251,7 +394,7 @@
             console.group(`[${getTimestamp()}] 📥 MQTT Telemetry Received`);
             console.info(`Data Payload: { temp: ${temp}, humidity: ${humidity}, rain: "${rainStatus}" }`);
             console.info(`API Weather Sync: "${apiWeather}"`);
-            console.log(`⚙️ AI Engine Classification: %c${aiState}`, 'font-weight: bold; color: ' + 
+            console.log(`⚙️ AI Engine Classification: %c${aiState}`, 'font-weight: bold; color: ' +
                 (aiState === 'SAFE' ? '#2ecc71' : aiState === 'CAUTION' ? '#f1c40f' : '#e74c3c'));
             console.groupEnd();
 
@@ -260,11 +403,11 @@
             document.getElementById('hum-val').innerText = humidity + ' %';
             document.getElementById('rain-val').innerText = rainStatus;
             document.getElementById('api-status').innerText = apiWeather;
-            
+
             const stateBox = document.getElementById('ai-state');
             const servoStatus = document.getElementById('servo-status');
             const verificationMatch = document.getElementById('verification-match');
-            
+
             // Update Verification text logic
             if (aiState === 'CAUTION') {
                 verificationMatch.innerText = 'Conflict Detected';
@@ -276,7 +419,7 @@
 
             // Reset classes
             stateBox.className = 'ai-status';
-            
+
             if (aiState === 'SAFE') {
                 stateBox.classList.add('status-safe');
                 stateBox.innerText = 'SAFE';
@@ -293,7 +436,7 @@
                 servoStatus.innerText = 'CLOSED';
                 servoStatus.style.color = '#e74c3c';
             }
-            
+
             document.getElementById('decision-log').innerHTML = logText;
         }
 
@@ -301,7 +444,7 @@
         function manualOverride(command) {
             console.warn(`[${getTimestamp()}] ⚠️ USER OVERRIDE INITIATED: ${command}`);
             alert("Sending MQTT Command: " + command);
-            
+
             if (command === 'FORCE CLOSE') {
                 updateDashboard('--', '--', 'OVERRIDE', 'OVERRIDE', 'CRITICAL', '> User initiated FORCE CLOSE override.<br>> Ignoring sensor data.');
             } else {
@@ -313,11 +456,11 @@
         function simulateIncomingData() {
             // Simulating Test Case CT-02: False Positive (Spill/Dew)
             updateDashboard(
-                28.5, 
-                75, 
-                'WET (3500)', 
-                'Clear Sky', 
-                'CAUTION', 
+                28.5,
+                75,
+                'WET (3500)',
+                'Clear Sky',
+                'CAUTION',
                 '> Local sensor detects moisture.<br>> API reports clear weather.<br>> ML Classification: False Positive (Anomaly).<br>> Action: Alerting user. Actuators on standby.'
             );
         }
@@ -327,4 +470,5 @@
         console.log(`[${getTimestamp()}] 🚀 SyncGuard Dashboard Initialized. Waiting for MQTT data...`);
     </script>
 </body>
+
 </html>
