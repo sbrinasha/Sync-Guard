@@ -2,9 +2,9 @@
 #include <PubSubClient.h>
 
 // --- Configuration ---
-const char* ssid = "TP-Link_DX02";
-const char* password = "02022002Ds@";
-const char* mqtt_server = "192.168.1.100"; // Your Mac's IP running Mosquitto
+const char* ssid = "sbrinasha"; // Your WiFi SSID
+const char* password = "03April2003!";
+const char* mqtt_server = "172.20.10.3"; // Your Mac's IP running Mosquitto
 
 // Built-in LED
 #define LED_BUILTIN 2  // GPIO2 for most ESP32 boards

@@ -10,7 +10,7 @@ app.config["SECRET_KEY"] = "sync-guard-secret-2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MQTT Configuration
-MQTT_BROKER = "192.168.1.100"  # Your Mac's IP - Mosquitto running locally
+MQTT_BROKER = "172.20.10.3"  # Your Mac's IP - Mosquitto running locally
 MQTT_PORT = 1883
 MQTT_TOPICS = [("esp32/status", 0), ("esp32/sensor_data", 0)]
 

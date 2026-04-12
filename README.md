@@ -10,17 +10,38 @@
 
 ## 
 
+# Install Requirement
+
+pip install -r requirements.txt
+
 # TLDR
 Esp32 uses a MQTT to setup a broker that sends sensor data to it to be subscribed by the Flask Dashboard to be read and display data.
 
 # Tags
 #SereyyyKO #Amendesiak
 
+# START UP
+
+source .venv/bin/activate
+python dashboard.py
+
+# Start Mosquitto service
+brew services start mosquitto
+
+# Restart Mosquitto Broker
+brew services restart mosquitto
+
+# Verify it's running
+brew services list | grep mosquitto
+
+# Find Local Address
+ifconfig en0 | grep "inet " | awk '{print $2}'
+
 # Activate VENV
 ```source .venv/bin/activate```
 
-# Activate VENV
-```kill -9 $(lsof -ti :5000)```
+# Kill Old Dashboard Process
+```kill -9 $(lsof -ti :8080)```
 
 # To get Mac Address
 ifconfig en0 | grep "inet " | awk '{print $2}'
@@ -168,3 +189,7 @@ After installing Mosquitto, update the following files with your Mac's IP addres
 Example: If your Mac's IP is `192.168.1.100`:
 - dashboard.py: `MQTT_BROKER = "192.168.1.100"`
 - Sync_Guard_Sketch.ino: `const char* mqtt_server = "192.168.1.100";`
+
+# SETUP FOR TEST MODEL
+
+source .venv/bin/activate
