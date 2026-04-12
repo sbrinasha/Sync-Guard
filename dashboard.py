@@ -4,6 +4,8 @@ import paho.mqtt.client as mqtt
 import threading
 import time
 from datetime import datetime
+import geocoder
+import requests
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sync-guard-secret-2026"
@@ -14,8 +16,22 @@ MQTT_BROKER = "172.20.10.3"  # Your Mac's IP - Mosquitto running locally
 MQTT_PORT = 1883
 MQTT_TOPICS = [("esp32/status", 0), ("esp32/sensor_data", 0)]
 
+# OpenWeather API Configuration
+OPENWEATHER_API_KEY = "120d0873a392ff37d15d9562aa258a4f"  # Replace with your API key
+WEATHER_UPDATE_INTERVAL = 300  # Update every 5 minutes (300 seconds)
+
 # Global state
 esp32_status = {"online": False, "last_seen": None, "sensor_data": None}
+weather_data = {
+    "temp": None,
+    "humidity": None,
+    "description": None,
+    "location": None,
+    "lat": None,
+    "lon": None,
+    "rain": None,
+    "clouds": None,
+}
 
 # MQTT Client Setup
 mqtt_client = mqtt.Client()
@@ -83,6 +99,73 @@ def start_mqtt():
         print(f"❌ MQTT Connection Error: {e}")
 
 
+def get_location():
+    """Get current location using geocoder"""
+    try:
+        g = geocoder.ip("me")
+        if g.ok:
+            return g.latlng  # Returns [latitude, longitude]
+        return None
+    except Exception as e:
+        print(f"❌ Geocoder Error: {e}")
+        return None
+
+
+def fetch_weather_data():
+    """Fetch weather data from OpenWeather API"""
+    global weather_data
+
+    # Get location
+    location = get_location()
+    if not location:
+        print("⚠️ Could not determine location")
+        return
+
+    lat, lon = location
+
+    try:
+        # OpenWeather API endpoint
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
+
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Extract relevant data
+        weather_data = {
+            "temp": round(data["main"]["temp"], 1),
+            "humidity": data["main"]["humidity"],
+            "description": data["weather"][0]["description"].title(),
+            "location": data["name"],
+            "lat": round(lat, 4),
+            "lon": round(lon, 4),
+            "rain": data.get("rain", {}).get("1h", 0),  # Rain in last hour (mm)
+            "clouds": data["clouds"]["all"],  # Cloud coverage %
+            "wind_speed": round(data["wind"]["speed"], 1),
+        }
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(
+            f"🌤️ [{timestamp}] Weather data updated: {weather_data['location']} - {weather_data['description']}, {weather_data['temp']}°C"
+        )
+
+        # Emit to all connected clients
+        socketio.emit("weather_update", {"data": weather_data, "timestamp": timestamp})
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ OpenWeather API Error: {e}")
+    except KeyError as e:
+        print(f"❌ Error parsing weather data: {e}")
+
+
+def weather_update_loop():
+    """Periodically fetch weather data"""
+    while True:
+        fetch_weather_data()
+        time.sleep(WEATHER_UPDATE_INTERVAL)
+
+
 # Routes
 @app.route("/")
 def dashboard():
@@ -99,6 +182,12 @@ def handle_connect():
         "status_update",
         {"online": esp32_status["online"], "last_seen": esp32_status["last_seen"]},
     )
+    # Send current weather data if available
+    if weather_data.get("temp") is not None:
+        emit(
+            "weather_update",
+            {"data": weather_data, "timestamp": datetime.now().strftime("%H:%M:%S")},
+        )
 
 
 @socketio.on("disconnect")
@@ -135,10 +224,33 @@ def handle_button_test():
     )
 
 
+@socketio.on("request_weather")
+def handle_weather_request():
+    """Handle manual weather data request from web client"""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"[{timestamp}] Manual weather refresh requested")
+
+    # Emit console log
+    emit(
+        "console_log",
+        {
+            "message": f"[{timestamp}] Refreshing weather data...",
+            "type": "info",
+        },
+    )
+
+    # Fetch weather data immediately
+    fetch_weather_data()
+
+
 if __name__ == "__main__":
     # Start MQTT client in background thread
     mqtt_thread = threading.Thread(target=start_mqtt, daemon=True)
     mqtt_thread.start()
+
+    # Start weather update thread
+    weather_thread = threading.Thread(target=weather_update_loop, daemon=True)
+    weather_thread.start()
 
     print("🚀 Starting SyncGuard Dashboard...")
     print(f"📡 MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")

@@ -1,4 +1,4 @@
-Temperature_C,Humidity_Percent,Water_Sensor_Value,Actuator_Value
+temperature,humidity,water_sensor,action
 32.7,74.6,188,0
 29.7,62,87,0
 31.1,56.3,52,0

@@ -225,15 +225,34 @@
         </div>
 
         <div class="card">
-            <h2>Global Macro-Climate (API)</h2>
+            <h2>OpenWeather Data (API)</h2>
             <div class="sensor-data">
-                <span>Forecast Status:</span>
-                <span class="sensor-value" id="api-status">--</span>
+                <span>Location:</span>
+                <span class="sensor-value" id="api-location">--</span>
             </div>
             <div class="sensor-data">
-                <span>Verification Match:</span>
-                <span class="sensor-value" id="verification-match" style="color: #7f8c8d;">--</span>
+                <span>Weather:</span>
+                <span class="sensor-value" id="api-weather">--</span>
             </div>
+            <div class="sensor-data">
+                <span>Temperature:</span>
+                <span class="sensor-value" id="api-temp">--</span>
+            </div>
+            <div class="sensor-data">
+                <span>Humidity:</span>
+                <span class="sensor-value" id="api-humidity">--</span>
+            </div>
+            <div class="sensor-data">
+                <span>Rain (1h):</span>
+                <span class="sensor-value" id="api-rain">--</span>
+            </div>
+            <div class="sensor-data">
+                <span>Cloud Cover:</span>
+                <span class="sensor-value" id="api-clouds">--</span>
+            </div>
+            <p style="font-size: 0.8rem; color: #7f8c8d;">Updated: <span id="api-updated">--</span></p>
+            <button class="btn-simulate" onclick="refreshWeather()"
+                style="background-color: #3498db; width: 100%; margin-top: 10px;">Refresh Weather</button>
         </div>
 
         <div class="card">
@@ -320,6 +339,24 @@
             document.getElementById('temp-val').innerText = data.value + ' °C';
         });
 
+        // Listen for weather data updates
+        socket.on('weather_update', (data) => {
+            console.log(`[${getTimestamp()}] 🌤️ Weather Data Updated: ${data.data.location}`);
+
+            const weatherData = data.data;
+
+            const locationText = weatherData.location && weatherData.lat && weatherData.lon
+                ? `${weatherData.location} (${weatherData.lat}, ${weatherData.lon})`
+                : weatherData.location || '--';
+            document.getElementById('api-location').innerText = locationText;
+            document.getElementById('api-weather').innerText = weatherData.description || '--';
+            document.getElementById('api-temp').innerText = weatherData.temp !== null ? weatherData.temp + ' °C' : '--';
+            document.getElementById('api-humidity').innerText = weatherData.humidity !== null ? weatherData.humidity + ' %' : '--';
+            document.getElementById('api-rain').innerText = weatherData.rain ? weatherData.rain + ' mm' : '0 mm';
+            document.getElementById('api-clouds').innerText = weatherData.clouds !== null ? weatherData.clouds + ' %' : '--';
+            document.getElementById('api-updated').innerText = data.timestamp;
+        });
+
         // Listen for console log messages
         socket.on('console_log', (data) => {
             const consoleLog = document.getElementById('console-log');
@@ -345,6 +382,12 @@
         function testESP32Button() {
             console.log(`[${getTimestamp()}] Triggering ESP32 LED blink test...`);
             socket.emit('button_test');
+        }
+
+        // Function to manually refresh weather data
+        function refreshWeather() {
+            console.log(`[${getTimestamp()}] Manually requesting weather data...`);
+            socket.emit('request_weather');
         }
 
         // --- LIVE CLOCK LOGIC ---
