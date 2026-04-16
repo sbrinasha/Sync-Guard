@@ -4,7 +4,7 @@ DHTesp dht;
 
 // --- Pin Definitions ---
 const int DHT_PIN = 18;       // Blue DHT11 Data pin
-const int WATER_PIN = 34;    // Water sensor Signal (S) pin
+const int WATER_PIN = 35;    // Water sensor Signal (S) pin
 
 // --- Thresholds ---
 // Adjust this number after testing. 
@@ -15,8 +15,8 @@ void setup() {
   Serial.begin(9600);
   
   // Initialize DHT11
-  dht.setup(DHT_PIN, DHTesp::DHT11);
-  Serial.println("DHT11 initializing...");
+  dht.setup(DHT_PIN, DHTesp::DHT22);
+  Serial.println("DHT22 initializing...");
   
   // Initialize Water Sensor
   pinMode(WATER_PIN, INPUT);
