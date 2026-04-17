@@ -3,54 +3,66 @@
 DHTesp dht;
 
 // --- Pin Definitions ---
-const int DHT_PIN = 18;       // Blue DHT11 Data pin
-const int WATER_PIN = 35;    // Water sensor Signal (S) pin
+const int DHT_PIN = 18;       // DHT22 strictly on its distinct pin
+const int RAIN_AO_PIN = 34;  // Rain sensor Analog Output (AO) pin
 
-// --- Thresholds ---
-// Adjust this number after testing. 
-// 0 is usually bone dry. Anything above 1000 usually means it's wet.
-const int WATER_THRESHOLD = 1000; 
+// LED Pins
+const int LED_GREEN = 25;    // Safe / Dry
+const int LED_YELLOW = 26;   // Caution / Light Rain
+const int LED_RED = 27;      // Danger / Heavy Rain
 
 void setup() {
   Serial.begin(9600);
   
-  // Initialize DHT11
+  // Initialize Sensors
   dht.setup(DHT_PIN, DHTesp::DHT22);
-  Serial.println("DHT22 initializing...");
+  pinMode(RAIN_AO_PIN, INPUT);
   
-  // Initialize Water Sensor
-  pinMode(WATER_PIN, INPUT);
-  Serial.println("Water sensor initializing...");
+  // Initialize LEDs as Outputs
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
   
-  Serial.println("Adaptive Safety System Ready!");
+  Serial.println("Adaptive Safety Prototype Ready!");
   Serial.println("----------------------------------");
+  
+  // Flash all LEDs once to confirm they work on startup
+  setLEDs(HIGH, HIGH, HIGH);
+  delay(1000);
+  setLEDs(LOW, LOW, LOW);
   delay(1000); 
 }
 
 void loop() {
-  // --- Read Sensors ---
-  
-  // 1. Read Water Level (Analog value between 0 and 4095)
-  int water_level = analogRead(WATER_PIN);
-  
-  // 2. Read Temperature and Humidity
+  // --- 1. Read Sensors ---
+  int rain_analog_val = analogRead(RAIN_AO_PIN);
   float humidity = dht.getHumidity();
   float temperature = dht.getTemperature();
 
-  // --- Print Water Status ---
-  Serial.print("Water Level: ");
-  Serial.print(water_level);
-  
-  // Trigger the safety alert if the water level crosses the threshold
-  if (water_level > WATER_THRESHOLD) {
-    Serial.print(" (STATUS: LEAK DETECTED) | ");
-  } else {
-    Serial.print(" (STATUS: DRY)           | ");
+  // --- 2. Print Sensor Data ---
+  Serial.print("Rain Value: ");
+  Serial.print(rain_analog_val);
+
+  // --- 3. Evaluate Logic & Update LEDs ---
+  if (rain_analog_val > 3500) {
+    // Bone Dry -> SAFE
+    Serial.print(" (SAFE)         | ");
+    setLEDs(HIGH, LOW, LOW);     // Turn on GREEN
+  } 
+  else if (rain_analog_val > 2000) {
+    // Slight moisture -> CAUTION
+    Serial.print(" (WARNING)      | ");
+    setLEDs(LOW, HIGH, LOW);     // Turn on YELLOW
+  } 
+  else {
+    // Very wet -> DANGER
+    Serial.print(" (RAINING!)     | ");
+    setLEDs(LOW, LOW, HIGH);     // Turn on RED
   }
 
-  // --- Print DHT11 Status ---
+  // --- 4. Print DHT22 Data ---
   if (dht.getStatus() != DHTesp::ERROR_NONE) {
-    Serial.println("DHT11 Error: " + String(dht.getStatusString()));
+    Serial.println("DHT22 Error: " + String(dht.getStatusString()));
   } else {
     Serial.print("Temp: ");
     Serial.print(temperature);
@@ -59,5 +71,13 @@ void loop() {
     Serial.println("%");
   }
 
+  // 2-second delay for DHT22 stability
   delay(2000); 
+}
+
+// Helper function to easily switch all three LEDs at once
+void setLEDs(int greenState, int yellowState, int redState) {
+  digitalWrite(LED_GREEN, greenState);
+  digitalWrite(LED_YELLOW, yellowState);
+  digitalWrite(LED_RED, redState);
 }
