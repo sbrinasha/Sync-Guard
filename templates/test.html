@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Panel - SyncGuard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-semibold text-gray-900">Test Panel</h1>
+                    <p class="text-sm text-gray-500 mt-1">MQTT Broker Simulator &amp; ESP32 Remote Control</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <div id="statusIndicator" class="w-2 h-2 rounded-full bg-red-500"></div>
+                        <span id="statusText" class="text-sm text-gray-600">Connecting...</span>
+                    </div>
+                    <a href="/" class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Row 4: Console -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-medium text-gray-900">Console</h2>
+                <button onclick="clearConsole()"
+                    class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded">Clear</button>
+            </div>
+            <div id="console" class="bg-gray-900 rounded-lg p-4 h-48 overflow-y-auto font-mono text-xs space-y-1">
+                <div class="text-gray-400">Waiting for connection...</div>
+            </div>
+        </div>
+
+        <!-- Row 1: Sensor Simulator + Status Simulator -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Sensor Data Simulator -->
+            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                <div class="mb-4">
+                    <h2 class="text-lg font-medium text-gray-900">Sensor Data Simulator</h2>
+                    <p class="text-xs text-gray-400 mt-1">Publishes to <code
+                            class="bg-gray-100 px-1 rounded">esp32/sensor_data</code> &amp; marks ESP32 online</p>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-5">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Temperature (&deg;C)</label>
+                        <input id="sim-temp" type="number" step="0.1" value="28.5"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Humidity (%)</label>
+                        <input id="sim-humidity" type="number" step="0.1" value="75.0"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Rain (0&ndash;4095)</label>
+                        <input id="sim-rain" type="number" step="1" min="0" max="4095" value="120"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <!-- Live Broker Data -->
+                <div class="mb-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Current from
+                            Broker</span>
+                        <span id="broker-age" class="text-xs text-gray-400">No data yet</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">Temperature</div>
+                            <div id="broker-temp" class="text-lg font-bold text-gray-700">--</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">Humidity</div>
+                            <div id="broker-humidity" class="text-lg font-bold text-gray-700">--</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">Rain</div>
+                            <div id="broker-rain" class="text-lg font-bold text-gray-700">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="simulateSensor()"
+                        class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                        Publish Sensor Data
+                    </button>
+                    <button onclick="simulateSensorPreset('safe')"
+                        class="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded-lg transition-colors">
+                        Safe Preset
+                    </button>
+                    <button onclick="simulateSensorPreset('warning')"
+                        class="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs font-medium rounded-lg transition-colors">
+                        Warning Preset
+                    </button>
+                    <button onclick="simulateSensorPreset('rain')"
+                        class="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-medium rounded-lg transition-colors">
+                        Rain Preset
+                    </button>
+                </div>
+            </div>
+
+            <!-- ESP32 Status Simulator -->
+            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                <div class="mb-4">
+                    <h2 class="text-lg font-medium text-gray-900">Device Status Simulator</h2>
+                    <p class="text-xs text-gray-400 mt-1">Publishes to <code
+                            class="bg-gray-100 px-1 rounded">esp32/status</code></p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="simulateStatus(true)"
+                        class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                        Set ONLINE
+                    </button>
+                    <button onclick="simulateStatus(false)"
+                        class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors">
+                        Set OFFLINE
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-4">Setting ONLINE will also trigger the watchdog in the dashboard and
+                    mark the connection as active.</p>
+            </div>
+        </div>
+
+        <!-- Row 2: Weather API Simulator -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-medium text-gray-900">Weather API Simulator</h2>
+                    <p class="text-xs text-gray-400 mt-1">Overrides <code
+                            class="bg-gray-100 px-1 rounded">weather_update</code> events — real API is suppressed while
+                        active</p>
+                </div>
+                <label class="flex items-center gap-3 cursor-pointer select-none">
+                    <span id="weather-sim-label" class="text-sm font-medium text-gray-400">Sim Mode: OFF</span>
+                    <div class="relative" onclick="toggleWeatherSim()">
+                        <input type="checkbox" id="weather-sim-checkbox" class="sr-only">
+                        <div id="weather-sim-track"
+                            class="w-12 h-6 rounded-full transition-colors duration-300 ease-in-out bg-gray-300">
+                        </div>
+                        <div id="weather-sim-thumb"
+                            class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-in-out">
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Presets -->
+            <div class="flex gap-3 mb-4">
+                <button onclick="applyWeatherPreset('sunny')"
+                    class="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs font-medium rounded-lg transition-colors">
+                    Sunny
+                </button>
+                <button onclick="applyWeatherPreset('rain')"
+                    class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-medium rounded-lg transition-colors">
+                    Rain
+                </button>
+            </div>
+
+            <!-- Custom inputs -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                    <input id="wsim-desc" type="text" value="Clear Sky"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Temperature (&deg;C)</label>
+                    <input id="wsim-temp" type="number" step="0.1" value="30.0"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Humidity (%)</label>
+                    <input id="wsim-humidity" type="number" step="1" value="55"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Rain (mm/1h)</label>
+                    <input id="wsim-rain" type="number" step="0.1" value="0"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Cloud Cover (%)</label>
+                    <input id="wsim-clouds" type="number" step="1" value="5"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <button id="wsim-publish-btn" onclick="publishWeatherSim()" disabled
+                class="w-full py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed transition-colors mb-5">
+                Publish Simulated Weather
+            </button>
+
+            <!-- Current from Broker -->
+            <div class="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Current from Broker</span>
+                    <span id="weather-broker-age" class="text-xs text-gray-400">No data yet</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-center mb-3">
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1">Temperature</div>
+                        <div id="wbroker-temp" class="text-lg font-bold text-gray-700">--</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1">Humidity</div>
+                        <div id="wbroker-humidity" class="text-lg font-bold text-gray-700">--</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-400 mb-1">Rain</div>
+                        <div id="wbroker-rain" class="text-lg font-bold text-gray-700">--</div>
+                    </div>
+                </div>
+                <div class="text-center text-sm text-gray-600">
+                    <span id="wbroker-desc" class="font-medium">--</span>
+                    &nbsp;&middot;&nbsp; Clouds: <span id="wbroker-clouds">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: LED Controls -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="mb-4">
+                <h2 class="text-lg font-medium text-gray-900">LED Control</h2>
+                <p class="text-xs text-gray-400 mt-1">Publishes to <code
+                        class="bg-gray-100 px-1 rounded">esp32/test/led/{color}</code> with payload <code
+                        class="bg-gray-100 px-1 rounded">BLINK3</code></p>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <button onclick="triggerLED('red')" id="redButton"
+                    class="px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-300 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm">
+                    Red LED
+                </button>
+                <button onclick="triggerLED('green')" id="greenButton"
+                    class="px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm">
+                    Green LED
+                </button>
+                <button onclick="triggerLED('yellow')" id="yellowButton"
+                    class="px-4 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm">
+                    Yellow LED
+                </button>
+            </div>
+        </div>
+
+        <!-- Row 3: Button Test -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="mb-4">
+                <h2 class="text-lg font-medium text-gray-900">Button Test</h2>
+                <p class="text-xs text-gray-400 mt-1">Publishes <code class="bg-gray-100 px-1 rounded">BLINK</code> to
+                    <code class="bg-gray-100 px-1 rounded">esp32/button_test</code>
+                </p>
+            </div>
+            <button onclick="triggerButtonTest()"
+                class="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors">
+                Trigger Button Test
+            </button>
+        </div>
+
+    </main>
+
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            updateStatus(true);
+            addConsoleLog('Connected to server', 'success');
+        });
+
+        socket.on('disconnect', () => {
+            updateStatus(false);
+            addConsoleLog('Disconnected from server', 'error');
+        });
+
+        function updateStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            if (connected) {
+                indicator.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
+                statusText.textContent = 'Connected';
+            } else {
+                indicator.className = 'w-2 h-2 rounded-full bg-red-500';
+                statusText.textContent = 'Disconnected';
+            }
+        }
+
+        // --- LED Control ---
+        function triggerLED(color) {
+            const button = document.getElementById(`${color}Button`);
+            button.disabled = true;
+            socket.emit('led_control', { color: color });
+            addConsoleLog(`${color.toUpperCase()} LED command sent → esp32/test/led/${color}`, 'info');
+            setTimeout(() => { button.disabled = false; }, 1200);
+        }
+
+        socket.on('led_console_log', (data) => {
+            addConsoleLog(data.message, data.type || 'info');
+        });
+
+        // --- Button Test ---
+        function triggerButtonTest() {
+            socket.emit('button_test');
+            addConsoleLog('BLINK sent → esp32/button_test', 'info');
+        }
+
+        socket.on('console_log', (data) => {
+            addConsoleLog(data.message, data.type || 'info');
+        });
+
+        // --- Live Broker Data Display ---
+        let lastBrokerUpdate = null;
+
+        socket.on('sensor_update', (data) => {
+            lastBrokerUpdate = Date.now();
+            document.getElementById('broker-temp').textContent =
+                data.temp !== undefined && data.temp !== null ? data.temp + ' °C' : '--';
+            document.getElementById('broker-humidity').textContent =
+                data.humidity !== undefined && data.humidity !== null ? data.humidity + ' %' : '--';
+            document.getElementById('broker-rain').textContent =
+                data.rain !== undefined && data.rain !== null ? data.rain : '--';
+        });
+
+        // Tick every second to update "X sec ago" label
+        setInterval(() => {
+            const el = document.getElementById('broker-age');
+            if (!lastBrokerUpdate) return;
+            const sec = Math.floor((Date.now() - lastBrokerUpdate) / 1000);
+            if (sec < 5) {
+                el.textContent = 'Just updated';
+                el.className = 'text-xs text-green-500';
+            } else if (sec < 60) {
+                el.textContent = `${sec}s ago`;
+                el.className = 'text-xs text-gray-400';
+            } else {
+                const m = Math.floor(sec / 60);
+                el.textContent = `${m}m ago`;
+                el.className = 'text-xs text-orange-400';
+            }
+        }, 1000);
+
+        // --- Sensor Simulator ---
+        const PRESETS = {
+            safe: { temp: 28.5, humidity: 65.0, rain: 80 },
+            warning: { temp: 36.2, humidity: 91.5, rain: 150 },
+            rain: { temp: 25.0, humidity: 95.0, rain: 3200 },
+        };
+
+        function simulateSensorPreset(name) {
+            const p = PRESETS[name];
+            document.getElementById('sim-temp').value = p.temp;
+            document.getElementById('sim-humidity').value = p.humidity;
+            document.getElementById('sim-rain').value = p.rain;
+            simulateSensor();
+        }
+
+        function simulateSensor() {
+            const temp = parseFloat(document.getElementById('sim-temp').value);
+            const humidity = parseFloat(document.getElementById('sim-humidity').value);
+            const rain = parseInt(document.getElementById('sim-rain').value, 10);
+            if (isNaN(temp) || isNaN(humidity) || isNaN(rain)) {
+                addConsoleLog('Invalid sensor values', 'error');
+                return;
+            }
+            socket.emit('simulate_sensor', { temp, humidity, rain });
+            addConsoleLog(`Sending → esp32/sensor_data: temp=${temp}°C, humidity=${humidity}%, rain=${rain}`, 'info');
+        }
+
+        // --- Status Simulator ---
+        function simulateStatus(online) {
+            socket.emit('simulate_status', { online });
+            addConsoleLog(`Sending → esp32/status: ${online ? 'online' : 'offline'}`, online ? 'success' : 'warning');
+        }
+
+        // Receive confirmation from server
+        socket.on('sim_console_log', (data) => {
+            addConsoleLog(data.message, data.type || 'info');
+        });
+
+        // --- Weather Simulator ---
+        let weatherSimActive = false;
+        let lastWeatherUpdate = null;
+
+        const WEATHER_PRESETS = {
+            sunny: { description: 'Clear Sky', temp: 30.0, humidity: 55, rain: 0, clouds: 5 },
+            rain: { description: 'Heavy Rain', temp: 22.0, humidity: 95, rain: 8.5, clouds: 90 },
+        };
+
+        function toggleWeatherSim() {
+            weatherSimActive = !weatherSimActive;
+            const track = document.getElementById('weather-sim-track');
+            const thumb = document.getElementById('weather-sim-thumb');
+            const label = document.getElementById('weather-sim-label');
+            const publishBtn = document.getElementById('wsim-publish-btn');
+
+            if (weatherSimActive) {
+                track.className = 'w-12 h-6 rounded-full transition-colors duration-300 ease-in-out bg-green-500';
+                thumb.className = 'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-in-out translate-x-6';
+                label.textContent = 'Sim Mode: ON';
+                label.className = 'text-sm font-medium text-green-600';
+                publishBtn.disabled = false;
+                publishBtn.className = 'w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors mb-5';
+            } else {
+                track.className = 'w-12 h-6 rounded-full transition-colors duration-300 ease-in-out bg-gray-300';
+                thumb.className = 'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ease-in-out';
+                label.textContent = 'Sim Mode: OFF';
+                label.className = 'text-sm font-medium text-gray-400';
+                publishBtn.disabled = true;
+                publishBtn.className = 'w-full py-2 bg-gray-300 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed transition-colors mb-5';
+            }
+
+            socket.emit('set_weather_sim_mode', { active: weatherSimActive });
+            addConsoleLog(`Weather simulation mode: ${weatherSimActive ? 'ON — real API suppressed' : 'OFF — real API active'}`, weatherSimActive ? 'success' : 'warning');
+        }
+
+        function applyWeatherPreset(name) {
+            const p = WEATHER_PRESETS[name];
+            document.getElementById('wsim-desc').value = p.description;
+            document.getElementById('wsim-temp').value = p.temp;
+            document.getElementById('wsim-humidity').value = p.humidity;
+            document.getElementById('wsim-rain').value = p.rain;
+            document.getElementById('wsim-clouds').value = p.clouds;
+            if (weatherSimActive) publishWeatherSim();
+        }
+
+        function publishWeatherSim() {
+            if (!weatherSimActive) return;
+            const payload = {
+                description: document.getElementById('wsim-desc').value || 'Simulated',
+                temp: parseFloat(document.getElementById('wsim-temp').value),
+                humidity: parseFloat(document.getElementById('wsim-humidity').value),
+                rain: parseFloat(document.getElementById('wsim-rain').value),
+                clouds: parseInt(document.getElementById('wsim-clouds').value, 10),
+            };
+            if (isNaN(payload.temp) || isNaN(payload.humidity)) {
+                addConsoleLog('Invalid weather values', 'error');
+                return;
+            }
+            socket.emit('simulate_weather', payload);
+            addConsoleLog(`Sending simulated weather → ${payload.description}, temp=${payload.temp}°C, rain=${payload.rain}mm`, 'info');
+        }
+
+        socket.on('weather_update', (data) => {
+            lastWeatherUpdate = Date.now();
+            const wd = data.data;
+            document.getElementById('wbroker-temp').textContent = wd.temp !== null ? wd.temp + ' °C' : '--';
+            document.getElementById('wbroker-humidity').textContent = wd.humidity !== null ? wd.humidity + ' %' : '--';
+            document.getElementById('wbroker-rain').textContent = wd.rain !== undefined ? wd.rain + ' mm' : '--';
+            document.getElementById('wbroker-desc').textContent = wd.description || '--';
+            document.getElementById('wbroker-clouds').textContent = wd.clouds !== null ? wd.clouds + ' %' : '--';
+        });
+
+        setInterval(() => {
+            const el = document.getElementById('weather-broker-age');
+            if (!lastWeatherUpdate) return;
+            const sec = Math.floor((Date.now() - lastWeatherUpdate) / 1000);
+            if (sec < 5) {
+                el.textContent = 'Just updated';
+                el.className = 'text-xs text-green-500';
+            } else if (sec < 60) {
+                el.textContent = `${sec}s ago`;
+                el.className = 'text-xs text-gray-400';
+            } else {
+                const m = Math.floor(sec / 60);
+                el.textContent = `${m}m ago`;
+                el.className = 'text-xs text-orange-400';
+            }
+        }, 1000);
+
+        // --- Console ---
+        function addConsoleLog(message, type = 'info') {
+            const consoleDiv = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const colors = {
+                info: 'text-blue-400',
+                success: 'text-green-400',
+                error: 'text-red-400',
+                warning: 'text-yellow-400',
+            };
+            const logLine = document.createElement('div');
+            logLine.className = colors[type] || colors.info;
+            logLine.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> ${message}`;
+            consoleDiv.appendChild(logLine);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            while (consoleDiv.children.length > 80) consoleDiv.removeChild(consoleDiv.firstChild);
+        }
+
+        function clearConsole() {
+            const consoleDiv = document.getElementById('console');
+            consoleDiv.innerHTML = '<div class="text-gray-400">Console cleared.</div>';
+        }
+    </script>
+</body>
+
+</html>

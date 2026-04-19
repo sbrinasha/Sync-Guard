@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, emit
 import paho.mqtt.client as mqtt
 import threading
 import time
+import json
 from datetime import datetime
 import geocoder
 import requests
@@ -12,7 +13,7 @@ app.config["SECRET_KEY"] = "sync-guard-secret-2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MQTT Configuration
-MQTT_BROKER = "172.20.10.3"  # Your Mac's IP - Mosquitto running locally
+MQTT_BROKER = "172.20.10.4"  # Your Mac's IP - Mosquitto running locally
 MQTT_PORT = 1883
 MQTT_TOPICS = [("esp32/status", 0), ("esp32/sensor_data", 0)]
 
@@ -22,6 +23,7 @@ WEATHER_UPDATE_INTERVAL = 300  # Update every 5 minutes (300 seconds)
 
 # Global state
 esp32_status = {"online": False, "last_seen": None, "sensor_data": None}
+weather_sim_active = False  # When True, real API fetch is suppressed
 weather_data = {
     "temp": None,
     "humidity": None,
@@ -44,7 +46,7 @@ def on_connect(client, userdata, flags, rc):
         # Subscribe to topics
         for topic, qos in MQTT_TOPICS:
             client.subscribe(topic, qos)
-            print(f"📡 Subscribed to: {topic}")
+            print(f"Subscribed to: {topic}")
     else:
         print(f"Failed to connect to MQTT Broker, return code {rc}")
 
@@ -55,7 +57,7 @@ def on_message(client, userdata, msg):
     payload = msg.payload.decode("utf-8")
     timestamp = datetime.now().strftime("%H:%M:%S")
 
-    print(f"📨 [{timestamp}] Received from {topic}: {payload}")
+    print(f"[{timestamp}] Received from {topic}: {payload}")
 
     if topic == "esp32/status":
         # Update ESP32 status
@@ -72,16 +74,26 @@ def on_message(client, userdata, msg):
         esp32_status["sensor_data"] = payload
         esp32_status["last_seen"] = timestamp
 
-        # Emit sensor data to all connected web clients
-        socketio.emit("sensor_update", {"value": payload, "timestamp": timestamp})
+        # Try to parse structured JSON payload
+        try:
+            parsed = json.loads(payload)
+            socketio.emit(
+                "sensor_update",
+                {
+                    "temp": parsed.get("temp"),
+                    "humidity": parsed.get("humidity"),
+                    "rain": parsed.get("rain"),
+                    "timestamp": timestamp,
+                },
+            )
+        except (json.JSONDecodeError, ValueError):
+            socketio.emit("sensor_update", {"value": payload, "timestamp": timestamp})
 
 
 def on_disconnect(client, userdata, rc):
     """Callback when disconnected from MQTT broker"""
     if rc != 0:
-        print(
-            f"⚠️ Unexpected disconnection from MQTT Broker. Attempting to reconnect..."
-        )
+        print(f"Unexpected disconnection from MQTT Broker. Attempting to reconnect...")
 
 
 # Configure MQTT callbacks
@@ -96,7 +108,7 @@ def start_mqtt():
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
         mqtt_client.loop_forever()
     except Exception as e:
-        print(f"❌ MQTT Connection Error: {e}")
+        print(f"MQTT Connection Error: {e}")
 
 
 def get_location():
@@ -107,18 +119,22 @@ def get_location():
             return g.latlng  # Returns [latitude, longitude]
         return None
     except Exception as e:
-        print(f"❌ Geocoder Error: {e}")
+        print(f"Geocoder Error: {e}")
         return None
 
 
 def fetch_weather_data():
     """Fetch weather data from OpenWeather API"""
-    global weather_data
+    global weather_data, weather_sim_active
+
+    if weather_sim_active:
+        print("Weather simulation mode active — skipping real API fetch")
+        return
 
     # Get location
     location = get_location()
     if not location:
-        print("⚠️ Could not determine location")
+        print("Could not determine location")
         return
 
     lat, lon = location
@@ -147,16 +163,16 @@ def fetch_weather_data():
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(
-            f"🌤️ [{timestamp}] Weather data updated: {weather_data['location']} - {weather_data['description']}, {weather_data['temp']}°C"
+            f"[{timestamp}] Weather data updated: {weather_data['location']} - {weather_data['description']}, {weather_data['temp']}°C"
         )
 
         # Emit to all connected clients
         socketio.emit("weather_update", {"data": weather_data, "timestamp": timestamp})
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ OpenWeather API Error: {e}")
+        print(f"OpenWeather API Error: {e}")
     except KeyError as e:
-        print(f"❌ Error parsing weather data: {e}")
+        print(f"Error parsing weather data: {e}")
 
 
 def weather_update_loop():
@@ -173,10 +189,16 @@ def dashboard():
     return render_template("index.html")
 
 
+@app.route("/test")
+def test_page():
+    """Serve the LED test page"""
+    return render_template("test.html")
+
+
 @socketio.on("connect")
 def handle_connect():
     """Handle WebSocket connection from client"""
-    print(f"🔌 Web client connected")
+    print(f"Web client connected")
     # Send current ESP32 status to newly connected client
     emit(
         "status_update",
@@ -193,7 +215,7 @@ def handle_connect():
 @socketio.on("disconnect")
 def handle_disconnect():
     """Handle WebSocket disconnection"""
-    print(f"🔌 Web client disconnected")
+    print(f"Web client disconnected")
 
 
 @socketio.on("request_status")
@@ -243,6 +265,146 @@ def handle_weather_request():
     fetch_weather_data()
 
 
+@socketio.on("led_control")
+def handle_led_control(data):
+    """Handle LED control command from test page"""
+    color = data.get("color", "").lower()
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    # Validate color
+    if color not in ["red", "green", "yellow"]:
+        emit(
+            "led_console_log",
+            {
+                "message": f"[{timestamp}] Invalid color: {color}",
+                "type": "error",
+            },
+        )
+        return
+
+    # MQTT topic for this LED color
+    topic = f"esp32/test/led/{color}"
+
+    print(f"[{timestamp}] LED Control: {color.upper()} - Publishing to {topic}")
+
+    # Publish to MQTT broker (payload: "BLINK3")
+    mqtt_client.publish(topic, "BLINK3")
+
+    # Emit confirmation back to web client
+    emit(
+        "led_console_log",
+        {
+            "message": f"[{timestamp}] {color.upper()} LED command sent → {topic}",
+            "type": "success",
+        },
+    )
+
+
+@socketio.on("simulate_sensor")
+def handle_simulate_sensor(data):
+    """Simulate ESP32 sensor data by publishing to MQTT broker"""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    temp = data.get("temp")
+    humidity = data.get("humidity")
+    rain = data.get("rain")
+
+    payload = json.dumps({"temp": temp, "humidity": humidity, "rain": rain})
+
+    # Mark ESP32 as online and publish sensor data through MQTT
+    mqtt_client.publish("esp32/status", "online")
+    mqtt_client.publish("esp32/sensor_data", payload)
+
+    # Also emit directly so the dashboard updates even if MQTT loop has a delay
+    socketio.emit("status_update", {"online": True, "last_seen": timestamp})
+    socketio.emit(
+        "sensor_update",
+        {"temp": temp, "humidity": humidity, "rain": rain, "timestamp": timestamp},
+    )
+
+    print(
+        f"[{timestamp}] Simulated sensor: temp={temp}, humidity={humidity}, rain={rain}"
+    )
+    emit(
+        "sim_console_log",
+        {
+            "message": f"[{timestamp}] Published → esp32/sensor_data: temp={temp}°C, humidity={humidity}%, rain={rain}",
+            "type": "success",
+        },
+    )
+
+
+@socketio.on("simulate_status")
+def handle_simulate_status(data):
+    """Simulate ESP32 online/offline status by publishing to MQTT broker"""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    status = "online" if data.get("online") else "offline"
+
+    mqtt_client.publish("esp32/status", status)
+
+    # Also emit directly
+    socketio.emit(
+        "status_update", {"online": data.get("online"), "last_seen": timestamp}
+    )
+
+    print(f"[{timestamp}] Simulated status: {status}")
+    emit(
+        "sim_console_log",
+        {
+            "message": f"[{timestamp}] Published → esp32/status: {status}",
+            "type": "success" if data.get("online") else "warning",
+        },
+    )
+
+
+@socketio.on("set_weather_sim_mode")
+def handle_set_weather_sim_mode(data):
+    """Toggle weather simulation mode — suppresses real API updates when active"""
+    global weather_sim_active
+    weather_sim_active = data.get("active", False)
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    mode_str = "ON" if weather_sim_active else "OFF"
+    print(f"[{timestamp}] Weather simulation mode: {mode_str}")
+    emit(
+        "sim_console_log",
+        {
+            "message": f"[{timestamp}] Weather simulation mode: {mode_str}",
+            "type": "success" if weather_sim_active else "warning",
+        },
+    )
+
+
+@socketio.on("simulate_weather")
+def handle_simulate_weather(data):
+    """Emit a simulated weather_update event directly to all clients"""
+    global weather_data
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    sim_data = {
+        "temp": data.get("temp"),
+        "humidity": data.get("humidity"),
+        "description": data.get("description", "Simulated"),
+        "location": "Kuching (1.55, 110.3333)",
+        "lat": 1.55,
+        "lon": 110.3333,
+        "rain": data.get("rain", 0),
+        "clouds": data.get("clouds", 0),
+        "wind_speed": 0,
+    }
+    weather_data.update(sim_data)
+
+    socketio.emit("weather_update", {"data": sim_data, "timestamp": timestamp})
+    print(
+        f"[{timestamp}] Simulated weather: {sim_data['description']}, {sim_data['temp']}°C"
+    )
+    emit(
+        "sim_console_log",
+        {
+            "message": f"[{timestamp}] Simulated weather → {sim_data['description']}, temp={sim_data['temp']}°C, humidity={sim_data['humidity']}%, rain={sim_data['rain']}mm",
+            "type": "success",
+        },
+    )
+
+
 if __name__ == "__main__":
     # Start MQTT client in background thread
     mqtt_thread = threading.Thread(target=start_mqtt, daemon=True)
@@ -252,9 +414,9 @@ if __name__ == "__main__":
     weather_thread = threading.Thread(target=weather_update_loop, daemon=True)
     weather_thread.start()
 
-    print("🚀 Starting SyncGuard Dashboard...")
-    print(f"📡 MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
-    print("🌐 Dashboard will be available at: http://localhost:8080")
+    print("Starting SyncGuard Dashboard...")
+    print(f"MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
+    print("Dashboard will be available at: http://localhost:8080")
 
     # Start Flask-SocketIO server
     socketio.run(app, host="0.0.0.0", port=8080, debug=True, allow_unsafe_werkzeug=True)
