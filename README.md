@@ -1,63 +1,89 @@
 # Sync-Guard
 
-## Framework and Protocols
-- Flask [Python]
-- MQTT (Arduino Library, communication protocol) [C++]
+Sync-Guard is an ESP32-based smart home safety dashboard that uses MQTT for live device communication and Flask for monitoring and control.
 
-## Programming language
-- C++
+## Overview
+
+The ESP32 publishes sensor and device status data through MQTT.
+The Flask dashboard subscribes to those MQTT topics, displays live readings, and sends control commands back to the device.
+
+## Frameworks and Protocols
+
+- Flask (Python)
+- MQTT (communication protocol)
+- Arduino MQTT libraries (ESP32 side)
+
+## Programming Languages
+
 - Python
+- C++
 
-## 
+## Installation
 
-# Install Requirement
+Install project dependencies:
 
+```bash
 pip install -r requirements.txt
+```
 
-# TLDR
-Esp32 uses a MQTT to setup a broker that sends sensor data to it to be subscribed by the Flask Dashboard to be read and display data.
+## Quick Start
 
-# Tags
-#SereyyyKO #Amendesiak
+Activate the virtual environment:
 
-# START UP
-
+```bash
 source .venv/bin/activate
+```
+
+Run the dashboard:
+
+```bash
 python dashboard.py
+```
 
-# Start Mosquitto service
+## Broker Commands
+
+Start Mosquitto:
+
+```bash
 brew services start mosquitto
+```
 
-# Restart Mosquitto Broker
+Restart Mosquitto:
+
+```bash
 brew services restart mosquitto
+```
 
-# Verify it's running
+Verify Mosquitto is running:
+
+```bash
 brew services list | grep mosquitto
+```
 
-# Find Local Address
-ifconfig en0 | grep "inet " | awk '{print $2}'
+Stop Mosquitto:
 
-# Activate VENV
-```source .venv/bin/activate```
-
-# Kill Old Dashboard Process
-```kill -9 $(lsof -ti :8080)```
-
-# To get Mac Address
-ifconfig en0 | grep "inet " | awk '{print $2}'
-
-Useful Commands for the Broker via mosquitto
-
-Stop the broker
+```bash
 brew services stop mosquitto
+```
 
-Start the broker
-brew services start mosquitto
+## Useful Commands
 
-Restart the broker
-brew services restart mosquitto
+Find local IP address:
 
----
+```bash
+ifconfig en0 | grep "inet " | awk '{print $2}'
+```
+
+Kill old dashboard process on port 8080:
+
+```bash
+kill -9 $(lsof -ti :8080)
+```
+
+## Notes
+
+- Tags: `#SereyyyKO` `#Amendesiak`
+
 
 ## MQTT Broker Setup (Mosquitto on macOS)
 
