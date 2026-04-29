@@ -156,6 +156,11 @@ kill -9 $(lsof -ti :8080)
 brew services list | grep mosquitto
 ```
 
+**View all publisher:**
+```bash
+mosquitto_sub -h localhost -t '#' -v
+```
+
 **View active connections on port 1883:**
 ```bash
 lsof -i :1883

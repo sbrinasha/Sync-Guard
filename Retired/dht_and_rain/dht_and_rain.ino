@@ -4,9 +4,13 @@
 
 // --- WiFi & MQTT Configuration ---
 // You can create a config.h file or uncomment and set these directly:
-const char* ssid = "Dexter's 13P";
-const char* password = "02022002ds";
-const char* mqtt_server = "172.20.10.4";
+// const char* ssid = "Dexter's 13P";
+// const char* password = "02022002ds";
+// const char* mqtt_server = "172.20.10.4";
+
+const char* ssid        = "TP-Link_DX02";
+const char* password    = "02022002Ds@";
+const char* mqtt_server = "192.168.1.105";
 
 #define DHT_TYPE DHT22
 DHT dht(18, DHT_TYPE);

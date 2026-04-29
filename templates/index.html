@@ -76,6 +76,25 @@
             font-weight: normal;
         }
 
+        .conn-info {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            font-weight: normal;
+            color: var(--text-muted);
+        }
+
+        .conn-info span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .conn-info .conn-label {
+            font-weight: 600;
+            color: #555;
+        }
+
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -485,6 +504,10 @@
         <div class="time-date">
             <span id="current-date">--/--/----</span> | <span id="current-time">--:--:--</span>
         </div>
+        <div class="conn-info">
+            <span><span class="conn-label">WiFi:</span> <span id="conn-wifi">--</span></span>
+            <span><span class="conn-label">MQTT:</span> <span id="conn-mqtt">--:--</span></span>
+        </div>
         <div class="system-status">
             <div class="last-update">Last Reported: <span id="last-reported">--:--:--</span></div>
         </div>
@@ -650,6 +673,12 @@
 
         socket.on('disconnect', () => {
             console.log('🔌 Disconnected from Flask server');
+        });
+
+        // Populate connection config details
+        socket.on('config_info', (data) => {
+            document.getElementById('conn-wifi').innerText = data.wifi_ssid || '--';
+            document.getElementById('conn-mqtt').innerText = `${data.mqtt_broker}:${data.mqtt_port}`;
         });
 
         // Listen for ESP32 status updates

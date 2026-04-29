@@ -36,6 +36,24 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <!-- ESP32 Log Console -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-medium text-gray-900">ESP32 MQTT Monitor</h2>
+                    <p class="text-xs text-gray-400 mt-1">Live feed from <code
+                            class="bg-gray-100 px-1 rounded">esp32/status</code>, <code
+                            class="bg-gray-100 px-1 rounded">esp32/sensor_data</code> &amp; <code
+                            class="bg-gray-100 px-1 rounded">esp32/system/logs</code></p>
+                </div>
+                <button onclick="clearEspLog()"
+                    class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-gray-200 rounded">Clear</button>
+            </div>
+            <div id="esp32-log-console"
+                class="bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto font-mono text-xs space-y-1">
+                <div class="text-gray-400">Waiting for ESP32 messages...</div>
+            </div>
+        </div>
 
         <!-- Row 4: Console -->
         <div class="bg-white rounded-lg border border-gray-200 p-6">
@@ -278,7 +296,51 @@
     </main>
 
     <script>
+
         const socket = io();
+
+        // --- ESP32 Log Console ---
+        const TOPIC_COLORS = {
+            'esp32/status': 'text-green-400',
+            'esp32/sensor_data': 'text-blue-400',
+            'esp32/system/logs': 'text-yellow-300',
+        };
+
+        function addEspLog(message, timestamp, topic) {
+            const logDiv = document.getElementById('esp32-log-console');
+            const topicColor = TOPIC_COLORS[topic] || 'text-gray-400';
+            const topicBadge = topic
+                ? `<span class="${topicColor} mr-2">[${topic}]</span>`
+                : '';
+            const logLine = document.createElement('div');
+            logLine.className = 'text-gray-200';
+            logLine.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> ${topicBadge}${message}`;
+            logDiv.appendChild(logLine);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            while (logDiv.children.length > 200) logDiv.removeChild(logDiv.firstChild);
+        }
+        function clearEspLog() {
+            const logDiv = document.getElementById('esp32-log-console');
+            logDiv.innerHTML = '<div class="text-gray-400">Console cleared.</div>';
+        }
+        socket.on('esp_log', (data) => {
+            const ts = data.timestamp || new Date().toLocaleTimeString('en-US', { hour12: false });
+            addEspLog(data.message, ts, 'esp32/system/logs');
+        });
+        socket.on('status_update', (data) => {
+            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const msg = `status=${data.status_type ?? (data.online ? 'online' : 'offline')}` +
+                (data.uptime != null ? `, uptime=${data.uptime}s` : '') +
+                (data.heartbeat_count != null ? `, count=${data.heartbeat_count}` : '');
+            addEspLog(msg, ts, 'esp32/status');
+        });
+        socket.on('sensor_update', (data) => {
+            const ts = data.timestamp || new Date().toLocaleTimeString('en-US', { hour12: false });
+            const msg = data.temp != null
+                ? `temp=${data.temp}°C, humidity=${data.humidity}%, rain=${data.rain}`
+                : `raw=${data.value}`;
+            addEspLog(msg, ts, 'esp32/sensor_data');
+        });
 
         socket.on('connect', () => {
             updateStatus(true);

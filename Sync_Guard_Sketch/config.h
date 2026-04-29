@@ -2,9 +2,17 @@
 // Uncomment the network you want to use
 
 // === Network 1: Dexter's 13P ===
-#define WIFI_SSID "Dexter's 13P"
-#define WIFI_PASS "02022002ds"
-#define MQTT_SERVER "172.20.10.4"
+// #define WIFI_SSID "Dexter13P"
+// #define WIFI_PASS "02022002ds"
+// #define MQTT_SERVER "172.20.10.2"
+
+// #define WIFI_SSID "iykyk"
+// #define WIFI_PASS "Kuro@2905"
+// #define MQTT_SERVER "10.210.187.75"
+
+#define WIFI_SSID "TP-Link_DX02"
+#define WIFI_PASS "02022002Ds@"
+#define MQTT_SERVER "192.168.1.105"
 
 // === Network 2: sbrinasha ===
 // #define WIFI_SSID "sbrinasha"

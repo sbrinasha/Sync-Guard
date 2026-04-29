@@ -4,25 +4,61 @@ import paho.mqtt.client as mqtt
 import threading
 import time
 import json
+import os
+import re
 from datetime import datetime
 import geocoder
 import requests
+
+
+def parse_config_h(path):
+    """Parse active (non-commented) #define values from a config.h file."""
+    defines = {}
+    try:
+        with open(path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("#define"):
+                    match = re.match(r'#define\s+(\w+)\s+"?([^"\s]+)"?', line)
+                    if match:
+                        defines[match.group(1)] = match.group(2)
+    except FileNotFoundError:
+        print(f"Warning: config.h not found at {path}, falling back to defaults")
+    return defines
+
+
+_CONFIG_H_PATH = os.path.join(
+    os.path.dirname(__file__), "Sync_Guard_Sketch", "config.h"
+)
+_config = parse_config_h(_CONFIG_H_PATH)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sync-guard-secret-2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# MQTT Configuration
-MQTT_BROKER = "172.20.10.4"  # Your Mac's IP - Mosquitto running locally
-MQTT_PORT = 1883
-MQTT_TOPICS = [("esp32/status", 0), ("esp32/sensor_data", 0)]
+# MQTT Configuration — sourced from Sync_Guard_Sketch/config.h
+MQTT_BROKER = _config.get("MQTT_SERVER", "172.20.10.4")
+MQTT_PORT = int(_config.get("MQTT_PORT", 1883))
+WIFI_SSID = _config.get("WIFI_SSID", "Unknown")
+MQTT_TOPICS = [("esp32/status", 0), ("esp32/sensor_data", 0), ("esp32/system/logs", 0)]
+
+# Heartbeat watchdog — mark ESP offline if no heartbeat within this many seconds
+HEARTBEAT_TIMEOUT = 15
 
 # OpenWeather API Configuration
 OPENWEATHER_API_KEY = "120d0873a392ff37d15d9562aa258a4f"  # Replace with your API key
 WEATHER_UPDATE_INTERVAL = 300  # Update every 5 minutes (300 seconds)
 
 # Global state
-esp32_status = {"online": False, "last_seen": None, "sensor_data": None}
+esp32_status = {
+    "online": False,
+    "last_seen": None,
+    "last_heartbeat": None,
+    "uptime": None,
+    "heartbeat_count": None,
+    "sensor_data": None,
+}
+_last_heartbeat_epoch = None  # float seconds (time.time()) for timeout checks
 weather_sim_active = False  # When True, real API fetch is suppressed
 weather_data = {
     "temp": None,
@@ -60,14 +96,43 @@ def on_message(client, userdata, msg):
     print(f"[{timestamp}] Received from {topic}: {payload}")
 
     if topic == "esp32/status":
-        # Update ESP32 status
-        esp32_status["online"] = payload == "online"
-        esp32_status["last_seen"] = timestamp
+        # Try to parse JSON heartbeat, fall back to plain string
+        try:
+            parsed = json.loads(payload)
+            status_type = parsed.get("status", "")
+            uptime = parsed.get("uptime")
+            count = parsed.get("count")
+        except (json.JSONDecodeError, ValueError):
+            status_type = payload  # plain "online" / "offline" (e.g. from simulate)
+            uptime = None
+            count = None
 
-        # Emit status update to all connected web clients
+        global _last_heartbeat_epoch
+        is_online = status_type in ("online", "heartbeat")
+
+        esp32_status["online"] = is_online
+        esp32_status["last_seen"] = timestamp
+        if is_online:
+            esp32_status["last_heartbeat"] = timestamp
+            esp32_status["uptime"] = uptime
+            esp32_status["heartbeat_count"] = count
+            _last_heartbeat_epoch = time.time()
+
         socketio.emit(
-            "status_update", {"online": esp32_status["online"], "last_seen": timestamp}
+            "status_update",
+            {
+                "online": is_online,
+                "last_seen": timestamp,
+                "last_heartbeat": esp32_status["last_heartbeat"],
+                "uptime": uptime,
+                "heartbeat_count": count,
+                "status_type": status_type,
+            },
         )
+
+    elif topic == "esp32/system/logs":
+        # Forward ESP32 log line to all connected web clients
+        socketio.emit("esp_log", {"message": payload, "timestamp": timestamp})
 
     elif topic == "esp32/sensor_data":
         # Update sensor data
@@ -94,6 +159,32 @@ def on_disconnect(client, userdata, rc):
     """Callback when disconnected from MQTT broker"""
     if rc != 0:
         print(f"Unexpected disconnection from MQTT Broker. Attempting to reconnect...")
+
+
+def heartbeat_watchdog_loop():
+    """Mark ESP32 offline if no heartbeat received within HEARTBEAT_TIMEOUT seconds."""
+    global _last_heartbeat_epoch
+    while True:
+        time.sleep(5)
+        if esp32_status["online"] and _last_heartbeat_epoch is not None:
+            elapsed = time.time() - _last_heartbeat_epoch
+            if elapsed > HEARTBEAT_TIMEOUT:
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                print(
+                    f"[{timestamp}] Heartbeat timeout ({elapsed:.0f}s) — marking ESP32 offline"
+                )
+                esp32_status["online"] = False
+                socketio.emit(
+                    "status_update",
+                    {
+                        "online": False,
+                        "last_seen": esp32_status["last_seen"],
+                        "last_heartbeat": esp32_status["last_heartbeat"],
+                        "uptime": esp32_status["uptime"],
+                        "heartbeat_count": esp32_status["heartbeat_count"],
+                        "status_type": "timeout",
+                    },
+                )
 
 
 # Configure MQTT callbacks
@@ -199,10 +290,25 @@ def test_page():
 def handle_connect():
     """Handle WebSocket connection from client"""
     print(f"Web client connected")
-    # Send current ESP32 status to newly connected client
     emit(
         "status_update",
-        {"online": esp32_status["online"], "last_seen": esp32_status["last_seen"]},
+        {
+            "online": esp32_status["online"],
+            "last_seen": esp32_status["last_seen"],
+            "last_heartbeat": esp32_status["last_heartbeat"],
+            "uptime": esp32_status["uptime"],
+            "heartbeat_count": esp32_status["heartbeat_count"],
+            "status_type": "online" if esp32_status["online"] else "offline",
+        },
+    )
+    # Send connection config so the UI can display MQTT/WiFi details
+    emit(
+        "config_info",
+        {
+            "mqtt_broker": MQTT_BROKER,
+            "mqtt_port": MQTT_PORT,
+            "wifi_ssid": WIFI_SSID,
+        },
     )
     # Send current weather data if available
     if weather_data.get("temp") is not None:
@@ -223,7 +329,14 @@ def handle_status_request():
     """Handle manual status request from client"""
     emit(
         "status_update",
-        {"online": esp32_status["online"], "last_seen": esp32_status["last_seen"]},
+        {
+            "online": esp32_status["online"],
+            "last_seen": esp32_status["last_seen"],
+            "last_heartbeat": esp32_status["last_heartbeat"],
+            "uptime": esp32_status["uptime"],
+            "heartbeat_count": esp32_status["heartbeat_count"],
+            "status_type": "online" if esp32_status["online"] else "offline",
+        },
     )
 
 
@@ -409,6 +522,10 @@ if __name__ == "__main__":
     # Start MQTT client in background thread
     mqtt_thread = threading.Thread(target=start_mqtt, daemon=True)
     mqtt_thread.start()
+
+    # Start heartbeat watchdog thread
+    watchdog_thread = threading.Thread(target=heartbeat_watchdog_loop, daemon=True)
+    watchdog_thread.start()
 
     # Start weather update thread
     weather_thread = threading.Thread(target=weather_update_loop, daemon=True)
