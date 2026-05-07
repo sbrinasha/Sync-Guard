@@ -1,327 +1,354 @@
-// =============================================================================
-// MODE SELECTION
-// Set WIFI_MODE to true  → connect to WiFi and publish directly to MQTT broker
-// Set WIFI_MODE to false → offline mode, sensor data is printed to Serial only
-//                          (use serializer.py on your PC to bridge Serial → MQTT)
-// =============================================================================
-#define WIFI_MODE false
-
-#if WIFI_MODE
 #include <WiFi.h>
 #include <PubSubClient.h>
-
-// --- Configuration (now in config.h) ---
-const char* ssid        = WIFI_SSID;
-const char* password    = WIFI_PASS;
-const char* mqtt_server = MQTT_SERVER;
-
-WiFiClient espClient;
-PubSubClient client(espClient);
-#endif
-
-#include <DHT.h>
 #include <ESP32Servo.h>
+#include <Wire.h>
+#include <SparkFunBME280.h>
+#include <DHT.h>
 #include "config.h"
 
-// LED Pins
-#define LED_RED 27      // GPIO27 for Red LED
-#define LED_YELLOW 26   // GPIO26 for Yellow LED
-#define LED_GREEN 25    // GPIO25 for Green LED
+// ===== GPIO Pins =====
+#define LED_MQTT      14  //Blinking -Connecting, Solid - Connected
+#define WIFI_LED_PIN  13  //Blinking -Connecting, Solid - Connected
+#define LED_RED       12  
+#define LED_YELLOW    11  
+#define LED_GREEN     10  
 
-// Sensor Pins
-#define DHT_PIN 18       // GPIO18 for DHT22
-#define DHT_TYPE DHT22  // DHT22 sensor type
-#define RAIN_SENSOR 35  // GPIO34 for Rain sensor (analog)
-#define BUTTON_PIN 15   // GPIO14 for push button (button → GND)
+#define SERVO_PIN     16  
+#define RAIN_DO_PIN   22
+#define RAIN_AO_PIN   34
+#define BUTTON_PIN    15  // Button: GPIO 15 > Button > GND
+#define DHT_PIN       42  // Placeholder - Change to actual GPIO pin later
+#define DHT_TYPE      DHT22
 
-// Initialize DHT sensor
+// ===== BME280 Configuration (SparkFun) =====
+#define BME280_I2C_ADDR 0x76  // Change to 0x77 if needed
+#define BME280_SDA_PIN  8
+#define BME280_SCL_PIN  9
+
+// ===== MQTT Configuration =====
+// --- SENT (ESP32 → Broker → Dashboard) ---
+#define MQTT_TOPIC_STATUS      "syncguard/status"
+#define MQTT_TOPIC_DATA        "syncguard/data"
+#define MQTT_TOPIC_TEMPERATURE "syncguard/temperature"
+#define MQTT_TOPIC_PRESSURE    "syncguard/pressure"
+#define MQTT_TOPIC_RAIN        "syncguard/rain"
+#define MQTT_TOPIC_RAIN_ANALOG "syncguard/rain_analog"
+#define MQTT_TOPIC_HUMIDITY    "syncguard/humidity"
+#define MQTT_TOPIC_HEARTBEAT   "syncguard/heartbeat"
+#define MQTT_TOPIC_SERVO_POS   "syncguard/servo/state"
+
+// --- RECEIVED (Dashboard → Broker → ESP32) ---
+#define MQTT_TOPIC_SERVO_STATE "syncguard/servo/change-state"
+
+// --- Publish Interval ---
+#define MQTT_PUBLISH_INTERVAL  5000   // Interval (ms) for all sensors to publish data
+
+// ===== Servo States =====
+#define SERVO_OPEN    90
+#define SERVO_CLOSED  180
+
+// ===== Global Objects =====
+WiFiClient espClient;
+PubSubClient mqtt(espClient);
+Servo myServo;
+BME280 bme;
 DHT dht(DHT_PIN, DHT_TYPE);
 
-Servo sg90;
-#define SERVO_PIN 12
+// ===== State Variables =====
+bool wifiConnected = false;
+bool mqttConnected = false;
+bool bmpAvailable  = false;
+bool servoOpen     = true;   // true = open (90°), false = closed (180°)
+bool lastButtonState = HIGH; // Pull-up: unpressed = HIGH
+unsigned long lastReconnectAttempt = 0;
+unsigned long lastSensorRead = 0;
+unsigned long lastHeartbeat = 0;
+const unsigned long HEARTBEAT_INTERVAL = 15000;  // Heartbeat every 15 seconds
 
-bool state = false; // false = 90°, true = 180°
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  
+  // Initialize LEDs
+  pinMode(WIFI_LED_PIN, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_MQTT, OUTPUT);
 
-unsigned long lastMsg = 0;
-unsigned long lastStatusMsg = 0;
-unsigned long heartbeatCount = 0;
-unsigned long lastWifiLed = 0;
-bool wifiLedState = false;
+  digitalWrite(WIFI_LED_PIN, LOW);
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_YELLOW, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_MQTT, LOW);
+  
+  Serial.println("\n=== Sync Guard Starting ===");
 
-// Button + servo state
-bool servoOpen = false;          // false = 0°, true = 90°
-bool lastButtonState = HIGH;     // INPUT_PULLUP: idle = HIGH
-unsigned long lastDebounce = 0;
-#define DEBOUNCE_MS 50
-#define MSG_BUFFER_SIZE (96)
-#if WIFI_MODE
-char statusMsg[MSG_BUFFER_SIZE];
-#endif
+  // Initialize Button (INPUT_PULLUP: unpressed = HIGH, pressed = LOW)
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  Serial.println("Button initialized.");
 
-// --- MQTT Log Helper ---
-void mqttLog(String message) {
-  Serial.println(message);
-  #if WIFI_MODE
-  if (client.connected()) {
-    client.publish("esp32/system/logs", message.c_str());
+  // Initialize Servo - start at OPEN (90°)
+  myServo.attach(SERVO_PIN);
+  myServo.write(SERVO_OPEN);
+  servoOpen = true;
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_RED, LOW);
+  Serial.println("Servo initialized at OPEN (90°).");
+
+  // Initialize Rain Sensor
+  pinMode(RAIN_DO_PIN, INPUT);
+  Serial.println("Rain sensor initialized.");
+
+  // Initialize DHT
+  dht.begin();
+  Serial.println("DHT initialized.");
+
+  // Initialize BME280 (SparkFun)
+  Wire.begin(BME280_SDA_PIN, BME280_SCL_PIN);
+  bme.setI2CAddress(0x76);
+  
+  bme.setI2CAddress(BME280_I2C_ADDR);
+  if (bme.beginI2C()) {
+    bmpAvailable = true;
+    Serial.println("BME280 initialized.");
+  } else {
+    Serial.println("BME280 not found! Check wiring or I2C address.");
   }
-  #endif
+
+  // Connect to WiFi
+  connectWiFi();
+  
+  // Configure MQTT
+  mqtt.setServer(MQTT_SERVER, MQTT_PORT);
+  mqtt.setCallback(mqttCallback);
 }
 
-// --- Functions ---
-#if WIFI_MODE
-void blinkLED(int ledPin, String colorName) {
-  mqttLog("Blinking " + colorName + " LED 3 times...");
-  
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(ledPin, HIGH);
-    delay(200);
-    digitalWrite(ledPin, LOW);
-    delay(200);
+void loop() {
+
+  // Handle WiFi connection
+  if (WiFi.status() != WL_CONNECTED) {
+    wifiConnected = false;
+    digitalWrite(WIFI_LED_PIN, LOW);
+    connectWiFi();
+  } else if (!wifiConnected) {
+    wifiConnected = true;
+    digitalWrite(WIFI_LED_PIN, HIGH);  // Solid when connected
   }
   
-  mqttLog(colorName + " LED blink complete!");
+  // Handle MQTT connection
+  if (wifiConnected) {
+    if (!mqtt.connected()) {
+      mqttConnected = false;
+      blinkLED(LED_MQTT, 250);  // Blink while connecting
+      unsigned long now = millis();
+      if (now - lastReconnectAttempt > 5000) {
+        lastReconnectAttempt = now;
+        connectMQTT();
+      }
+    } else {
+      if (!mqttConnected) {
+        mqttConnected = true;
+        digitalWrite(LED_MQTT, HIGH);  // Solid when connected
+        Serial.println("MQTT Connected!");
+      }
+      mqtt.loop();
+    }
+  }
+  
+  // Read and publish sensors periodically
+  unsigned long now = millis();
+  if (now - lastSensorRead >= MQTT_PUBLISH_INTERVAL) {
+    lastSensorRead = now;
+    readSensors();
+  }
+
+  // Handle button press (toggle servo state)
+  handleButton();
+
+  // Heartbeat
+  if (now - lastHeartbeat >= HEARTBEAT_INTERVAL) {
+    lastHeartbeat = now;
+    sendHeartbeat();
+  }
+
+  delay(100);
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
+// ===== WiFi Functions =====
+void connectWiFi() {
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(WIFI_SSID);
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    blinkLED(WIFI_LED_PIN, 250);  // Blink while connecting
+    Serial.print(".");
+    attempts++;
+  }
+  
+  Serial.println();
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi Connected!");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+    digitalWrite(WIFI_LED_PIN, HIGH);
+  } else {
+    Serial.println("WiFi Failed!");
+  }
+}
+
+// ===== MQTT Functions =====
+void connectMQTT() {
+  Serial.print("Connecting to MQTT...");
+  
+  String clientId = "SyncGuard-" + String(WiFi.macAddress());
+  
+  if (mqtt.connect(clientId.c_str())) {
+    Serial.println("Connected!");
+    mqtt.publish(MQTT_TOPIC_STATUS, "online");
+    mqtt.subscribe(MQTT_TOPIC_DATA);
+    mqtt.subscribe(MQTT_TOPIC_SERVO_STATE);  // Receive servo commands from dashboard
+  } else {
+    Serial.print("Failed, rc=");
+    Serial.println(mqtt.state());
+  }
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // Convert payload to string
   String message = "";
   for (int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
-  mqttLog("Message arrived [" + String(topic) + "]: " + message);
-  
-  // Handle LED test commands (new)
-  if (String(topic) == "esp32/test/led/red" && message == "BLINK3") {
-    blinkLED(LED_RED, "RED");
-  }
-  else if (String(topic) == "esp32/test/led/green" && message == "BLINK3") {
-    blinkLED(LED_GREEN, "GREEN");
-  }
-  else if (String(topic) == "esp32/test/led/yellow" && message == "BLINK3") {
-    blinkLED(LED_YELLOW, "YELLOW");
-  }
-}
 
-void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.println("Connecting to " + String(ssid));
+  Serial.print("[RECEIVED] Topic: ");
+  Serial.print(topic);
+  Serial.print(" | Message: ");
+  Serial.println(message);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println();
-  mqttLog("WiFi connected");
-  mqttLog("IP address: " + WiFi.localIP().toString());
-}
-
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Create a random client ID
-    String clientId = "ESP32Client-";
-    clientId += String(random(0xffff), HEX);
-
-    // Last Will & Testament — broker publishes this if ESP32 drops unexpectedly
-    const char* lwtPayload = "{\"status\":\"offline\"}";
-
-    // Attempt to connect with LWT
-    if (client.connect(clientId.c_str(), NULL, NULL, "esp32/status", 0, false, lwtPayload)) {
-      Serial.println("connected");
-      // Publish online announcement as JSON
-      unsigned long uptimeSec = millis() / 1000;
-      snprintf(statusMsg, MSG_BUFFER_SIZE, "{\"status\":\"online\",\"uptime\":%lu}", uptimeSec);
-      client.publish("esp32/status", statusMsg);
-      
-      client.subscribe("esp32/test/led/red");
-      mqttLog("Subscribed to esp32/test/led/red");
-      
-      client.subscribe("esp32/test/led/green");
-      mqttLog("Subscribed to esp32/test/led/green");
-      
-      client.subscribe("esp32/test/led/yellow");
-      mqttLog("Subscribed to esp32/test/led/yellow");
-      
-      mqttLog("=== SyncGuard ESP32 MQTT Connected ===");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
+  // --- Handle servo command ---
+  if (String(topic) == MQTT_TOPIC_SERVO_STATE) {
+    if (message == "open" || message == "90") {
+      if (!servoOpen) toggleServo();
+    } else if (message == "close" || message == "closed" || message == "180") {
+      if (servoOpen) toggleServo();
     }
   }
 }
-#endif // WIFI_MODE
 
-void setup() {
-  delay(300); 
-  Serial.begin(115200);
-
-  delay(1000); 
-  Serial.println("Setting Up Components");
-  
-  pinMode(LED_RED, OUTPUT);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_YELLOW, OUTPUT);
-
-  digitalWrite(LED_RED, LOW);
-  digitalWrite(LED_GREEN, LOW);
-  digitalWrite(LED_YELLOW, LOW);
-  
-  // Setup sensors
-  pinMode(RAIN_SENSOR, INPUT);
-  dht.begin();
-
-  // Setup SG90 servo
-  sg90.setPeriodHertz(50);           // SG90 runs at 50Hz
-  sg90.attach(SERVO_PIN, 500, 2400); // SG90 pulse range: 500–2400µs
-  sg90.write(90); // start at 90
-
-  // Setup push button
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
-  // --- Startup test: blink all LEDs once + sweep servo ---
-  int testLeds[] = { LED_RED, LED_YELLOW, LED_GREEN};
-  for (int i = 0; i < 3; i++) {
-    delay(1000); 
-    digitalWrite(testLeds[i], HIGH);
+// ===== Sensor Functions =====
+void readSensors() {
+  // --- DHT (Humidity only) ---
+  float humidity = dht.readHumidity();
+  if (!isnan(humidity)) {
+    Serial.print("Humidity: "); Serial.print(humidity); Serial.println(" %");
+    if (mqttConnected) {
+      char buf[16];
+      snprintf(buf, sizeof(buf), "%.2f", humidity);
+      mqtt.publish(MQTT_TOPIC_HUMIDITY, buf);
+    }
+  } else {
+    Serial.println("DHT read failed!");
   }
 
-  sg90.write(180);
+  // --- Rain Sensor ---
+  bool isRaining = (digitalRead(RAIN_DO_PIN) == LOW);  // LOW = rain detected
+  int rainAnalog = analogRead(RAIN_AO_PIN);            // 0-4095, lower = wetter
 
-  delay(300);
+  Serial.print("Rain: ");
+  Serial.print(isRaining ? "Yes" : "No");
+  Serial.print(" | Analog: ");
+  Serial.println(rainAnalog);
 
-  for (int i = 0; i < 3; i++) {
-    delay(1000); 
-    digitalWrite(testLeds[i], LOW);
+  if (mqttConnected) {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d", rainAnalog);
+    mqtt.publish(MQTT_TOPIC_RAIN, isRaining ? "1" : "0");
+    mqtt.publish(MQTT_TOPIC_RAIN_ANALOG, buf);
   }
 
-  Serial.println("Finish Setting up");
-  delay(1000); 
+  // --- BME280 ---
+  if (bmpAvailable) {
+    float temperature = bme.readTempC();              // Celsius
+    float pressure    = bme.readFloatPressure() / 100.0F; // hPa
 
-  Serial.println("SyncGuard ESP32 Starting");
-  #if WIFI_MODE
-  Serial.println("--- Mode: WiFi + MQTT ---");
-  Serial.println("WiFi SSID  : " + String(ssid));
-  Serial.println("MQTT Server: " + String(mqtt_server));
-  Serial.println("MQTT Port  : " + String(MQTT_PORT));
-  #else
+    Serial.print("Temp: ");     Serial.print(temperature); Serial.print(" C | ");
+    Serial.print("Pressure: "); Serial.print(pressure);    Serial.println(" hPa");
 
-  Serial.println("--- Mode: Offline (Serial only) ---");
-  Serial.println("Sensor data printed as SENSOR:{...} for serializer.py");
-  #endif
-  Serial.println("DHT22 sensor initialized");
-  Serial.println("Rain sensor initialized");
+    if (mqttConnected) {
+      char buf[64];
+      snprintf(buf, sizeof(buf), "%.2f", temperature);
+      mqtt.publish(MQTT_TOPIC_TEMPERATURE, buf);
 
-  #if WIFI_MODE
-  setup_wifi();
-  client.setServer(mqtt_server, MQTT_PORT);
-  client.setCallback(callback);  // Set callback for incoming messages
-  #endif
+      snprintf(buf, sizeof(buf), "%.2f", pressure);
+      mqtt.publish(MQTT_TOPIC_PRESSURE, buf);
+    }
+  // --- Servo State ---
+  if (mqttConnected) {
+    mqtt.publish(MQTT_TOPIC_SERVO_POS, servoOpen ? "open" : "closed");
+  }
 }
 
-void loop() {
-  #if WIFI_MODE
-  if (!client.connected()) {
-    reconnect();
+void sendHeartbeat() {
+  if (!mqttConnected) return;
+
+  char buf[32];
+  snprintf(buf, sizeof(buf), "%lu", millis() / 1000);  // Uptime in seconds
+  mqtt.publish(MQTT_TOPIC_HEARTBEAT, buf);
+
+  Serial.print("Heartbeat sent | Uptime: ");
+  Serial.print(buf);
+  Serial.println("s");
+}
+
+void setServoAngle(int angle) {
+  angle = constrain(angle, 0, 180);
+  myServo.write(angle);
+  Serial.print("Servo set to: ");
+  Serial.println(angle);
+}
+
+void toggleServo() {
+  if (servoOpen) {
+    // Close it
+    servoOpen = false;
+    myServo.write(SERVO_CLOSED);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_RED, HIGH);
+    Serial.println("Servo: CLOSED (180°)");
+    if (mqttConnected) mqtt.publish(MQTT_TOPIC_SERVO_POS, "closed");
+  } else {
+    // Open it
+    servoOpen = true;
+    myServo.write(SERVO_OPEN);
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, HIGH);
+    Serial.println("Servo: OPEN (90°)");
+    if (mqttConnected) mqtt.publish(MQTT_TOPIC_SERVO_POS, "open");
   }
-  client.loop();
-  #endif
+}
 
-  unsigned long now = millis();
-
-  #if WIFI_MODE
-  // Publish heartbeat every 5 seconds
-  if (now - lastStatusMsg > 5000) {
-    lastStatusMsg = now;
-    heartbeatCount++;
-    unsigned long uptimeSec = now / 1000;
-    snprintf(statusMsg, MSG_BUFFER_SIZE, "{\"status\":\"heartbeat\",\"uptime\":%lu,\"count\":%lu}", uptimeSec, heartbeatCount);
-    client.publish("esp32/status", statusMsg);
-    mqttLog("Heartbeat #" + String(heartbeatCount) + " uptime=" + String(uptimeSec) + "s");
-  }
-  #endif
-
-  if (digitalRead(BUTTON_PIN) == LOW) {
-    Serial.println("[BUTTON] Pressed");
-    state = !state;
-    sg90.write(state ? 180 : 90);
-    delay(1000);
-  }
-
-  // Push button → toggle servo (debounced)
-  bool reading = digitalRead(BUTTON_PIN);
-  if (reading != lastButtonState) {
-    lastDebounce = now;
-  }
-  if ((now - lastDebounce) >= DEBOUNCE_MS && reading == LOW && lastButtonState == HIGH) {
-    servoOpen = !servoOpen;
-    int angle = servoOpen ? 180 : 90;
-    sg90.write(angle);
-    Serial.println("[BUTTON] Pressed! Servo → " + String(angle) + "°");
-    mqttLog("Button pressed → servo " + String(angle) + "°");
-  }
-  lastButtonState = reading;
-
-  // Read and display sensor data every 2 seconds
-  if (now - lastMsg > 2000) {
-    lastMsg = now;
-
-    // Read DHT22 sensor
-    float temperature = dht.readTemperature();
-    float humidity = dht.readHumidity();
-    
-    // Read rain sensor (analog value 0-4095 on ESP32)
-    int rainValue = analogRead(RAIN_SENSOR);
-    
-    // DHT22 readings
-    if (isnan(temperature) || isnan(humidity)) {
-      mqttLog("[ERROR] DHT22: Failed to read sensor!");
-    } else {
-      mqttLog("Temperature: " + String(temperature, 1) + " °C");
-      mqttLog("Humidity: " + String(humidity, 1) + " %");
+void handleButton() {
+  bool currentState = digitalRead(BUTTON_PIN);
+  // Detect falling edge (HIGH -> LOW = button pressed)
+  if (lastButtonState == HIGH && currentState == LOW) {
+    delay(50);  // Debounce
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      toggleServo();
     }
-    
-    // Rain sensor reading + interpretation
-    String rainStatus;
-    if (rainValue > 3000) {
-      rainStatus = "Dry";
-    } else if (rainValue > 1500) {
-      rainStatus = "Light Rain";
-    } else {
-      rainStatus = "Heavy Rain";
-    }
-    mqttLog("Rain Sensor: " + String(rainValue) + " (" + rainStatus + ")");
-
-    // --- Always print a SENSOR: JSON line so serializer.py can parse it ---
-    // This works in BOTH modes: offline (serializer reads it) and WiFi (logged to MQTT too)
-    if (!isnan(temperature) && !isnan(humidity)) {
-      String sensorJson = "SENSOR:{\"temperature\":" + String(temperature, 1)
-                        + ",\"humidity\":" + String(humidity, 1)
-                        + ",\"rain\":" + String(rainValue)
-                        + ",\"rain_status\":\"" + rainStatus + "\"}"; 
-      Serial.println(sensorJson);
-    }
-
-    #if WIFI_MODE
-    // Publish real sensor data to MQTT
-    if (!isnan(temperature) && !isnan(humidity)) {
-      char tempStr[16], humStr[16];
-      dtostrf(temperature, 1, 2, tempStr);
-      dtostrf(humidity, 1, 2, humStr);
-      client.publish("esp32/sensor_data/temperature", tempStr);
-      client.publish("esp32/sensor_data/humidity", humStr);
-      String rainPayload = "{\"value\":" + String(rainValue) + ",\"status\":\"" + rainStatus + "\"}";
-      client.publish("esp32/sensor_data/rain", rainPayload.c_str());
-      mqttLog("Published sensor data to MQTT");
-    }
-    #endif
   }
+  lastButtonState = currentState;
+}
+
+// ===== Utility Functions =====
+void blinkLED(int pin, int delayMs) {
+  digitalWrite(pin, !digitalRead(pin));
+  delay(delayMs);
 }

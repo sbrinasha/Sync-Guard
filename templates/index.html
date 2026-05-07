@@ -528,11 +528,23 @@
                 <span class="sensor-value" id="hum-val">-- %</span>
             </div>
             <div class="sensor-data">
-                <span>Rain Sensor (Analog):</span>
+                <span>Pressure:</span>
+                <span class="sensor-value" id="pressure-val">-- hPa</span>
+            </div>
+            <div class="sensor-data">
+                <span>Rain (Digital):</span>
+                <span class="sensor-value" id="rain-digital-val">--</span>
+            </div>
+            <div class="sensor-data">
+                <span>Rain (Analog):</span>
                 <span class="sensor-value" id="rain-val">--</span>
             </div>
+            <div class="sensor-data">
+                <span>Heartbeat (Uptime):</span>
+                <span class="sensor-value" id="heartbeat-val">-- s</span>
+            </div>
             <div class="card-footer-row">
-                <span>Device ID: living_room_1</span>
+                <span>Device ID: esp32-s3</span>
                 <span><span id="mc-dot" class="live-dot"></span><span id="mc-updated">No data</span></span>
             </div>
         </div>
@@ -620,27 +632,14 @@
         <div class="card">
             <h2>Actuator Control</h2>
             <div class="actuator-status">
-                Window Servo Status: <span id="servo-status" style="color: #7f8c8d;">UNKNOWN</span>
+                Servo Status: <span id="servo-status" style="color: #7f8c8d;">UNKNOWN</span>
             </div>
             <div class="btn-group">
-                <button class="btn-close" onclick="manualOverride('FORCE CLOSE')">FORCE CLOSE</button>
-                <button class="btn-open" onclick="manualOverride('FORCE OPEN')">FORCE OPEN</button>
-            </div>
-
-            <button class="btn-simulate" onclick="testESP32Button()"
-                style="background-color: #e67e22; margin-top: 10px;"> Test ESP32 LED Blink</button>
-
-            <p style="font-size: 0.8rem; margin-top: 15px; text-align: center;">Overrides ML Logic via MQTT Command
-                Topic</p>
-        </div>
-
-        <div class="card">
-            <h2>Console Log</h2>
-            <div style="background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;"
-                id="console-log">
-                > System initialized...<br>
+                <button class="btn-open" onclick="servoControl('open')">Open</button>
+                <button class="btn-close" onclick="servoControl('close')">Close</button>
             </div>
         </div>
+
     </div>
 
     <!-- Interval Edit Modal -->
@@ -696,9 +695,10 @@
                 console.log(`[${getTimestamp()}] ❌ ESP32 is OFFLINE`);
             }
 
-            if (data.last_seen) {
-                lastReportedEl.innerText = data.last_seen;
-            }
+            if (data.last_seen) lastReportedEl.innerText = data.last_seen;
+
+            if (data.uptime !== undefined && data.uptime !== null)
+                document.getElementById('heartbeat-val').innerText = data.uptime + ' s';
         });
 
         // Listen for sensor data updates
@@ -713,15 +713,22 @@
 
         socket.on('sensor_update', (data) => {
             document.getElementById('last-reported').innerText = data.timestamp;
-            if (data.temp !== undefined && data.temp !== null) {
-                document.getElementById('temp-val').innerText = data.temp + ' °C';
-                document.getElementById('hum-val').innerText = data.humidity + ' %';
-                document.getElementById('rain-val').innerText = data.rain;
-            } else {
-                document.getElementById('temp-val').innerText = data.value + ' °C';
-            }
+
+            if (data.temperature !== undefined && data.temperature !== null)
+                document.getElementById('temp-val').innerText = parseFloat(data.temperature).toFixed(1) + ' °C';
+            if (data.humidity !== undefined && data.humidity !== null)
+                document.getElementById('hum-val').innerText = parseFloat(data.humidity).toFixed(1) + ' %';
+            if (data.pressure !== undefined && data.pressure !== null)
+                document.getElementById('pressure-val').innerText = parseFloat(data.pressure).toFixed(1) + ' hPa';
+            if (data.rain !== undefined && data.rain !== null)
+                document.getElementById('rain-digital-val').innerText = data.rain === '1' || data.rain === 1 ? 'Raining' : 'Dry';
+            if (data.rain_analog !== undefined && data.rain_analog !== null)
+                document.getElementById('rain-val').innerText = data.rain_analog;
+
             flashEl('temp-val');
             flashEl('hum-val');
+            flashEl('pressure-val');
+            flashEl('rain-digital-val');
             flashEl('rain-val');
 
             // Update live timestamp and dot
@@ -751,32 +758,20 @@
             document.getElementById('api-updated').innerText = data.timestamp;
         });
 
-        // Listen for console log messages
-        socket.on('console_log', (data) => {
-            const consoleLog = document.getElementById('console-log');
-            const logEntry = document.createElement('span');
-            logEntry.innerHTML = data.message + '<br>';
-
-            // Color based on type
-            if (data.type === 'error') {
-                logEntry.style.color = '#ff4444';
-            } else if (data.type === 'warning') {
-                logEntry.style.color = '#ffaa00';
-            } else if (data.type === 'success') {
-                logEntry.style.color = '#00ff00';
+        // Listen for servo state updates from ESP32
+        socket.on('servo_update', (data) => {
+            const statusEl = document.getElementById('servo-status');
+            if (data.state === 'open') {
+                statusEl.innerText = 'OPEN';
+                statusEl.style.color = '#27ae60';
+            } else if (data.state === 'closed') {
+                statusEl.innerText = 'CLOSED';
+                statusEl.style.color = '#e74c3c';
             } else {
-                logEntry.style.color = '#00aaff';
+                statusEl.innerText = data.state.toUpperCase();
+                statusEl.style.color = '#7f8c8d';
             }
-
-            consoleLog.appendChild(logEntry);
-            consoleLog.scrollTop = consoleLog.scrollHeight; // Auto-scroll
         });
-
-        // Function to test ESP32 button
-        function testESP32Button() {
-            console.log(`[${getTimestamp()}] Triggering ESP32 LED blink test...`);
-            socket.emit('button_test');
-        }
 
         // Function to manually refresh weather data
         function refreshWeather() {
@@ -871,16 +866,10 @@
             if (decisionLog) decisionLog.innerHTML = logText;
         }
 
-        // --- MANUAL OVERRIDE ---
-        function manualOverride(command) {
-            console.warn(`[${getTimestamp()}] ⚠️ USER OVERRIDE INITIATED: ${command}`);
-            alert("Sending MQTT Command: " + command);
-
-            if (command === 'FORCE CLOSE') {
-                updateDashboard('--', '--', 'OVERRIDE', 'OVERRIDE', 'CRITICAL', '> User initiated FORCE CLOSE override.<br>> Ignoring sensor data.');
-            } else {
-                updateDashboard('--', '--', 'OVERRIDE', 'OVERRIDE', 'SAFE', '> User initiated FORCE OPEN override.<br>> System returned to SAFE state.');
-            }
+        // --- SERVO CONTROL ---
+        function servoControl(state) {
+            socket.emit('servo_control', { state: state });
+            console.log(`[${getTimestamp()}] Servo command sent: ${state}`);
         }
 
         // --- AI RISK ENGINE: INTERVAL TIMER ---
