@@ -754,7 +754,21 @@
 
                 <!-- Center: Probability line chart + current values -->
                 <div>
-                    <div class="ai-section-label">Probability History</div>
+                    <div
+                        style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                        <div class="ai-section-label" style="margin-bottom:0;">Probability History</div>
+                        <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                            <input type="date" id="chart-start-date"
+                                style="font-size:0.72rem; border:1px solid #ddd; border-radius:5px; padding:2px 6px; color:#34495e; background:#fafafa;">
+                            <span style="font-size:0.72rem; color:#aaa;">to</span>
+                            <input type="date" id="chart-end-date"
+                                style="font-size:0.72rem; border:1px solid #ddd; border-radius:5px; padding:2px 6px; color:#34495e; background:#fafafa;">
+                            <button onclick="loadChartHistory()"
+                                style="font-size:0.72rem; padding:3px 9px; border-radius:5px; border:none; background:#3498db; color:#fff; cursor:pointer; font-weight:600;">Load</button>
+                            <button id="chart-live-btn" onclick="resetChartToLive()"
+                                style="font-size:0.72rem; padding:3px 9px; border-radius:5px; border:none; background:#2ecc71; color:#fff; cursor:pointer;">Live</button>
+                        </div>
+                    </div>
                     <div style="position: relative; height: 180px;">
                         <canvas id="prob-chart"></canvas>
                     </div>
@@ -1169,6 +1183,7 @@
         const checkHistory = [];
         const MAX_HISTORY = 10;
         let probChart = null;
+        let chartMode = 'live'; // 'live' | 'history'
 
         function initProbChart() {
             const ctx = document.getElementById('prob-chart').getContext('2d');
@@ -1207,11 +1222,44 @@
             if (!probChart) return;
             checkHistory.push({ label, probabilities });
             if (checkHistory.length > MAX_HISTORY) checkHistory.shift();
+            if (chartMode !== 'live') return; // preserve history view
+            _renderLiveChart();
+        }
+
+        function _renderLiveChart() {
             probChart.data.labels = checkHistory.map(h => h.label);
             probChart.data.datasets[0].data = checkHistory.map(h => +(h.probabilities[0] * 100).toFixed(1));
             probChart.data.datasets[1].data = checkHistory.map(h => +(h.probabilities[1] * 100).toFixed(1));
             probChart.data.datasets[2].data = checkHistory.map(h => +(h.probabilities[2] * 100).toFixed(1));
             probChart.update();
+        }
+
+        async function loadChartHistory() {
+            const start = document.getElementById('chart-start-date').value;
+            const end = document.getElementById('chart-end-date').value;
+            if (!start || !end) return;
+            try {
+                const res = await fetch(`/api/ai_log?start=${start}&end=${end}`);
+                const rows = await res.json();
+                chartMode = 'history';
+                const btn = document.getElementById('chart-live-btn');
+                btn.style.background = '#e67e22';
+                btn.style.fontWeight = '600';
+                probChart.data.labels = rows.map(r => r.logged_at.substring(11, 16));
+                probChart.data.datasets[0].data = rows.map(r => +(r.prob_open * 100).toFixed(1));
+                probChart.data.datasets[1].data = rows.map(r => +(r.prob_warning * 100).toFixed(1));
+                probChart.data.datasets[2].data = rows.map(r => +(r.prob_close * 100).toFixed(1));
+                probChart.update();
+                if (!rows.length) showToast('No records found for that date range', '#7f8c8d');
+            } catch (e) { showToast('Failed to load history', '#e74c3c'); }
+        }
+
+        function resetChartToLive() {
+            chartMode = 'live';
+            const btn = document.getElementById('chart-live-btn');
+            btn.style.background = '#2ecc71';
+            btn.style.fontWeight = '';
+            _renderLiveChart();
         }
 
         socket.on('ai_check_result', (result) => {
@@ -1397,6 +1445,12 @@
         startClock();
         startCountdown();
         initProbChart();
+        // Default date range = today
+        (function () {
+            const _t = new Date().toISOString().split('T')[0];
+            document.getElementById('chart-start-date').value = _t;
+            document.getElementById('chart-end-date').value = _t;
+        })();
         console.log(`[${getTimestamp()}] \ud83d\ude80 SyncGuard Dashboard Initialized. Waiting for MQTT data...`);
     </script>
 </body>

@@ -1,10 +1,11 @@
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, jsonify, request
 from flask_socketio import SocketIO, emit
 import paho.mqtt.client as mqtt
 import threading
 import time
 import os
 import re
+import sqlite3
 from datetime import datetime
 import geocoder
 import requests
@@ -116,6 +117,68 @@ weather_data = {
     "clouds": None,
 }
 
+# SQLite database
+DB_PATH = os.path.join(os.path.dirname(__file__), "syncguard.db")
+
+
+def init_db():
+    """Create the ai_check_log table if it does not already exist."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ai_check_log (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                logged_at        TEXT NOT NULL,
+                temperature      REAL,
+                humidity         REAL,
+                rain_analog      INTEGER,
+                sensor_simulated INTEGER DEFAULT 0,
+                weather_location TEXT,
+                weather_desc     TEXT,
+                weather_rain     REAL,
+                weather_raining  INTEGER DEFAULT 0,
+                weather_sim      INTEGER DEFAULT 0,
+                prediction       INTEGER,
+                prob_open        REAL,
+                prob_warning     REAL,
+                prob_close       REAL
+            )
+        """)
+
+
+def log_ai_check(result):
+    """Persist one AI check result row to SQLite."""
+    ss = result.get("sensor_snapshot", {})
+    ws = result.get("weather_snapshot", {})
+    probs = result.get("probabilities", [])
+    logged_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO ai_check_log (
+                logged_at, temperature, humidity, rain_analog, sensor_simulated,
+                weather_location, weather_desc, weather_rain, weather_raining, weather_sim,
+                prediction, prob_open, prob_warning, prob_close
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+            (
+                logged_at,
+                ss.get("temperature"),
+                ss.get("humidity"),
+                ss.get("rain_analog"),
+                int(bool(ss.get("simulated"))),
+                ws.get("location"),
+                ws.get("description"),
+                ws.get("rain"),
+                int(bool(ws.get("is_raining"))),
+                int(bool(ws.get("simulated"))),
+                result.get("prediction"),
+                probs[0] if len(probs) > 0 else None,
+                probs[1] if len(probs) > 1 else None,
+                probs[2] if len(probs) > 2 else None,
+            ),
+        )
+
+
 # Weather simulation state
 weather_simulation_mode = False
 simulation_weather_data = {}
@@ -216,7 +279,11 @@ def on_message(client, userdata, msg):
 
 
 def _emit_sensor_update(timestamp):
-    """Emit the current sensor_readings snapshot to all connected clients."""
+    """Emit the current sensor_readings snapshot to all connected clients.
+    Skipped when ESP32 simulation mode is active so simulated data is not overwritten.
+    """
+    if esp32_simulation_mode:
+        return
     socketio.emit(
         "sensor_update",
         {
@@ -250,17 +317,18 @@ def heartbeat_watchdog_loop():
                     f"[{timestamp}] Heartbeat timeout ({elapsed:.0f}s) — marking ESP32 offline"
                 )
                 esp32_status["online"] = False
-                socketio.emit(
-                    "status_update",
-                    {
-                        "online": False,
-                        "last_seen": esp32_status["last_seen"],
-                        "last_heartbeat": esp32_status["last_heartbeat"],
-                        "uptime": esp32_status["uptime"],
-                        "heartbeat_count": esp32_status["heartbeat_count"],
-                        "status_type": "timeout",
-                    },
-                )
+                if not esp32_simulation_mode:
+                    socketio.emit(
+                        "status_update",
+                        {
+                            "online": False,
+                            "last_seen": esp32_status["last_seen"],
+                            "last_heartbeat": esp32_status["last_heartbeat"],
+                            "uptime": esp32_status["uptime"],
+                            "heartbeat_count": esp32_status["heartbeat_count"],
+                            "status_type": "timeout",
+                        },
+                    )
 
 
 # Configure MQTT callbacks
@@ -364,6 +432,49 @@ def serve_sound(filename):
     """Serve audio files from the sound_effects directory."""
     sounds_dir = os.path.join(os.path.dirname(__file__), "sound_effects")
     return send_from_directory(sounds_dir, filename)
+
+
+@app.route("/data_collection")
+def data_collection_page():
+    """Serve the data collection management page."""
+    return render_template("data_collection.html")
+
+
+@app.route("/api/ai_log", methods=["GET"])
+def api_ai_log_get():
+    """Return AI check rows filtered by date range.
+    Query params: start (YYYY-MM-DD), end (YYYY-MM-DD). Both default to today.
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    start = request.args.get("start", today)
+    end = request.args.get("end", today)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT * FROM ai_check_log WHERE date(logged_at) BETWEEN ? AND ? ORDER BY id ASC",
+            (start, end),
+        ).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/ai_log/<int:row_id>", methods=["DELETE"])
+def api_ai_log_delete(row_id):
+    """Delete a single AI check row by ID."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM ai_check_log WHERE id = ?", (row_id,))
+    return jsonify({"deleted": row_id})
+
+
+@app.route("/api/ai_log/bulk_delete", methods=["POST"])
+def api_ai_log_bulk_delete():
+    """Delete multiple rows. Expects JSON body {\"ids\": [1, 2, 3]}."""
+    ids = request.get_json(force=True).get("ids", [])
+    if not ids:
+        return jsonify({"deleted": 0})
+    placeholders = ",".join("?" * len(ids))
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(f"DELETE FROM ai_check_log WHERE id IN ({placeholders})", ids)
+    return jsonify({"deleted": len(ids)})
 
 
 @socketio.on("connect")
@@ -646,12 +757,35 @@ def handle_run_ai_check():
         print(
             f"[{timestamp}] AI Check → pred={prediction}, probs={[round(p, 2) for p in probabilities]}, weather_rain={weather_is_raining}"
         )
+        log_ai_check(
+            {
+                "prediction": prediction,
+                "probabilities": probabilities,
+                "sensor_snapshot": {
+                    "temperature": temp,
+                    "humidity": humidity,
+                    "rain_analog": rain_analog,
+                    "simulated": esp32_simulation_mode,
+                },
+                "weather_snapshot": {
+                    "location": current_weather.get("location"),
+                    "description": current_weather.get("description"),
+                    "rain": weather_rain,
+                    "is_raining": weather_is_raining,
+                    "simulated": weather_simulation_mode,
+                },
+            }
+        )
     except Exception as e:
         emit("ai_check_result", {"error": str(e)})
         print(f"[{timestamp}] AI Check Error: {e}")
 
 
 if __name__ == "__main__":
+    # Initialise SQLite database
+    init_db()
+    print(f"SQLite DB: {DB_PATH}")
+
     # Start MQTT client in background thread
     mqtt_thread = threading.Thread(target=start_mqtt, daemon=True)
     mqtt_thread.start()

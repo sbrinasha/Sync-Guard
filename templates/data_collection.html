@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncGuard — Data Collection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: #f8fafc;
+        }
+
+        .pred-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .pred-open {
+            background: #d5f5e3;
+            color: #1e8449;
+        }
+
+        .pred-warning {
+            background: #fef9e7;
+            color: #b7770d;
+        }
+
+        .pred-close {
+            background: #fadbd8;
+            color: #c0392b;
+        }
+
+        .sim-badge {
+            background: #e8daef;
+            color: #6c3483;
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 9999px;
+            font-size: 0.68rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <a href="/" class="text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors">← Dashboard</a>
+            <span class="text-gray-300">|</span>
+            <h1 class="text-lg font-semibold text-gray-800">Data Collection</h1>
+            <span class="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full" id="row-count">0 rows</span>
+        </div>
+        <a href="/test" class="text-sm text-gray-400 hover:text-gray-600 transition-colors">Test Page →</a>
+    </header>
+
+    <main class="max-w-screen-xl mx-auto px-4 py-6">
+
+        <!-- Filter bar -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-5 flex flex-wrap items-center gap-3">
+            <span class="text-sm font-medium text-gray-600">Date range:</span>
+            <input type="date" id="filter-start"
+                class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+            <span class="text-sm text-gray-400">to</span>
+            <input type="date" id="filter-end"
+                class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+            <button onclick="loadData()"
+                class="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded transition-colors">
+                Load
+            </button>
+            <div class="flex-1"></div>
+            <button id="delete-selected-btn" onclick="deleteSelected()"
+                class="bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-1.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled>
+                Delete Selected
+            </button>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-3 py-3 text-left w-8">
+                                <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"
+                                    class="rounded border-gray-300 text-blue-500 focus:ring-blue-400">
+                            </th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                ID</th>
+                            <th
+                                class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                Logged At</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Temp °C</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Hum %</th>
+                            <th
+                                class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                                Rain ADC</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Sensor</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Prediction</th>
+                            <th
+                                class="px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Open%</th>
+                            <th
+                                class="px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Warn%</th>
+                            <th
+                                class="px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Close%</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Weather</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                W.Sim</th>
+                            <th
+                                class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-10">
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-tbody">
+                        <!-- rows injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty state -->
+            <div id="empty-state" class="hidden py-16 text-center text-gray-400">
+                <div class="text-4xl mb-3">📭</div>
+                <div class="text-sm font-medium">No records found for this date range.</div>
+                <div class="text-xs mt-1">Run an AI Check on the dashboard to log data.</div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="loading-state" class="hidden py-16 text-center text-gray-400">
+                <div class="text-sm">Loading…</div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination-bar" class="hidden mt-4 flex items-center justify-between">
+            <div class="text-xs text-gray-400" id="page-info"></div>
+            <div class="flex items-center gap-1">
+                <button onclick="goToPage(currentPage - 1)" id="btn-prev"
+                    class="px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    disabled>← Prev</button>
+                <div id="page-numbers" class="flex gap-1"></div>
+                <button onclick="goToPage(currentPage + 1)" id="btn-next"
+                    class="px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    disabled>Next →</button>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>Rows per page:</span>
+                <select id="page-size-select" onchange="changePageSize(this.value)"
+                    class="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const PRED_LABELS = ['OPEN', 'WARNING', 'CLOSE'];
+        const PRED_CLASSES = ['pred-open', 'pred-warning', 'pred-close'];
+        let currentRows = [];
+        let currentPage = 1;
+        let pageSize = 25;
+
+        // ── Init ──────────────────────────────────────────────────────────────
+        (function init() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('filter-start').value = today;
+            document.getElementById('filter-end').value = today;
+            loadData();
+        })();
+
+        // ── Data load ─────────────────────────────────────────────────────────
+        async function loadData() {
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+            if (!start || !end) return;
+
+            setTableState('loading');
+            try {
+                const res = await fetch(`/api/ai_log?start=${start}&end=${end}`);
+                currentRows = await res.json();
+                currentPage = 1;
+                renderPage();
+            } catch (e) {
+                setTableState('empty');
+                console.error('Load failed', e);
+            }
+            syncDeleteBtn();
+        }
+
+        function renderPage() {
+            const totalPages = Math.max(1, Math.ceil(currentRows.length / pageSize));
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+            const start = (currentPage - 1) * pageSize;
+            const pageRows = currentRows.slice(start, start + pageSize);
+
+            const tbody = document.getElementById('log-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('select-all').checked = false;
+
+            if (!currentRows.length) {
+                setTableState('empty');
+                updateRowCount(0);
+                document.getElementById('pagination-bar').classList.add('hidden');
+                return;
+            }
+
+            updateRowCount(currentRows.length);
+            pageRows.forEach(r => tbody.appendChild(buildRow(r)));
+            renderPagination(totalPages);
+            syncDeleteBtn();
+        }
+
+        function renderPagination(totalPages) {
+            const bar = document.getElementById('pagination-bar');
+            bar.classList.toggle('hidden', totalPages <= 1);
+            if (totalPages <= 1) return;
+
+            const start = (currentPage - 1) * pageSize + 1;
+            const end = Math.min(currentPage * pageSize, currentRows.length);
+            document.getElementById('page-info').textContent =
+                `Showing ${start}–${end} of ${currentRows.length} rows`;
+
+            document.getElementById('btn-prev').disabled = currentPage === 1;
+            document.getElementById('btn-next').disabled = currentPage === totalPages;
+
+            // Page number buttons (show up to 7 around current)
+            const container = document.getElementById('page-numbers');
+            container.innerHTML = '';
+            const range = pageRange(currentPage, totalPages);
+            let lastNum = null;
+            range.forEach(num => {
+                if (num === '...') {
+                    const el = document.createElement('span');
+                    el.className = 'px-2 py-1 text-xs text-gray-400';
+                    el.textContent = '…';
+                    container.appendChild(el);
+                } else {
+                    const btn = document.createElement('button');
+                    btn.textContent = num;
+                    btn.onclick = () => goToPage(num);
+                    btn.className = num === currentPage
+                        ? 'px-3 py-1.5 text-xs rounded border font-semibold bg-blue-500 text-white border-blue-500'
+                        : 'px-3 py-1.5 text-xs rounded border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors';
+                    container.appendChild(btn);
+                }
+                lastNum = num;
+            });
+        }
+
+        function pageRange(current, total) {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = [];
+            if (current <= 4) {
+                pages.push(...[1, 2, 3, 4, 5], '...', total);
+            } else if (current >= total - 3) {
+                pages.push(1, '...', ...Array.from({ length: 5 }, (_, i) => total - 4 + i));
+            } else {
+                pages.push(1, '...', current - 1, current, current + 1, '...', total);
+            }
+            return pages;
+        }
+
+        function goToPage(n) {
+            currentPage = n;
+            renderPage();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function changePageSize(val) {
+            pageSize = parseInt(val);
+            currentPage = 1;
+            renderPage();
+        }
+
+        function renderTable(rows) {
+            currentRows = rows;
+            currentPage = 1;
+            renderPage();
+        }
+
+        function buildRow(r) {
+            const tr = document.createElement('tr');
+            tr.id = `row-${r.id}`;
+            tr.className = 'border-b border-gray-100 hover:bg-gray-50 transition-colors';
+
+            const predClass = PRED_CLASSES[r.prediction] ?? '';
+            const predLabel = PRED_LABELS[r.prediction] ?? '?';
+            const weatherText = r.weather_location
+                ? `${r.weather_location}${r.weather_rain ? ` — ${r.weather_rain}mm` : ''}`
+                : '—';
+
+            tr.innerHTML = `
+                <td class="px-3 py-2.5">
+                    <input type="checkbox" class="row-cb rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+                        data-id="${r.id}" onchange="syncDeleteBtn()">
+                </td>
+                <td class="px-3 py-2.5 text-gray-400 text-xs font-mono">${r.id}</td>
+                <td class="px-3 py-2.5 text-gray-700 text-xs whitespace-nowrap font-mono">${r.logged_at}</td>
+                <td class="px-3 py-2.5 text-gray-700">${r.temperature != null ? parseFloat(r.temperature).toFixed(1) : '—'}</td>
+                <td class="px-3 py-2.5 text-gray-700">${r.humidity != null ? parseFloat(r.humidity).toFixed(1) : '—'}</td>
+                <td class="px-3 py-2.5 text-gray-700">${r.rain_analog ?? '—'}</td>
+                <td class="px-3 py-2.5">${r.sensor_simulated ? '<span class="sim-badge">SIM</span>' : '<span class="text-gray-300 text-xs">—</span>'}</td>
+                <td class="px-3 py-2.5"><span class="pred-badge ${predClass}">${predLabel}</span></td>
+                <td class="px-3 py-2.5 text-right text-xs text-green-700 font-mono">${r.prob_open != null ? (r.prob_open * 100).toFixed(1) + '%' : '—'}</td>
+                <td class="px-3 py-2.5 text-right text-xs text-yellow-600 font-mono">${r.prob_warning != null ? (r.prob_warning * 100).toFixed(1) + '%' : '—'}</td>
+                <td class="px-3 py-2.5 text-right text-xs text-red-600 font-mono">${r.prob_close != null ? (r.prob_close * 100).toFixed(1) + '%' : '—'}</td>
+                <td class="px-3 py-2.5 text-xs text-gray-500 max-w-xs truncate" title="${weatherText}">${weatherText}</td>
+                <td class="px-3 py-2.5">${r.weather_sim ? '<span class="sim-badge">SIM</span>' : '<span class="text-gray-300 text-xs">—</span>'}</td>
+                <td class="px-3 py-2.5">
+                    <button onclick="deleteRow(${r.id})"
+                        class="text-xs text-red-400 hover:text-red-600 font-medium transition-colors whitespace-nowrap">Delete</button>
+                </td>
+            `;
+            return tr;
+        }
+
+        // ── Delete single ─────────────────────────────────────────────────────
+        async function deleteRow(id) {
+            if (!confirm(`Delete record #${id}?`)) return;
+            try {
+                const res = await fetch(`/api/ai_log/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    currentRows = currentRows.filter(r => r.id !== id);
+                    renderPage();
+                }
+            } catch (e) { console.error('Delete failed', e); }
+        }
+
+        // ── Delete selected ───────────────────────────────────────────────────
+        async function deleteSelected() {
+            const checked = [...document.querySelectorAll('.row-cb:checked')];
+            if (!checked.length) return;
+            const ids = checked.map(cb => parseInt(cb.dataset.id));
+            if (!confirm(`Delete ${ids.length} selected record(s)?`)) return;
+            try {
+                const res = await fetch('/api/ai_log/bulk_delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids }),
+                });
+                if (res.ok) {
+                    currentRows = currentRows.filter(r => !ids.includes(r.id));
+                    document.getElementById('select-all').checked = false;
+                    renderPage();
+                }
+            } catch (e) { console.error('Bulk delete failed', e); }
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+        function toggleSelectAll(cb) {
+            document.querySelectorAll('.row-cb').forEach(c => c.checked = cb.checked);
+            syncDeleteBtn();
+        }
+
+        function syncDeleteBtn() {
+            const anyChecked = document.querySelectorAll('.row-cb:checked').length > 0;
+            const btn = document.getElementById('delete-selected-btn');
+            btn.disabled = !anyChecked;
+        }
+
+        function updateRowCount(n) {
+            document.getElementById('row-count').textContent = `${n} row${n !== 1 ? 's' : ''}`;
+        }
+
+        function setTableState(state) {
+            document.getElementById('empty-state').classList.toggle('hidden', state !== 'empty');
+            document.getElementById('loading-state').classList.toggle('hidden', state !== 'loading');
+            if (state === 'empty') {
+                updateRowCount(0);
+                document.getElementById('pagination-bar').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+
+</html>
