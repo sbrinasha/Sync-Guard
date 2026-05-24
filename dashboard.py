@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO, emit
 import paho.mqtt.client as mqtt
 import threading
@@ -8,6 +8,8 @@ import re
 from datetime import datetime
 import geocoder
 import requests
+import pandas as pd
+import joblib
 
 
 def parse_config_h(path):
@@ -31,12 +33,23 @@ _CONFIG_H_PATH = os.path.join(
 )
 _config = parse_config_h(_CONFIG_H_PATH)
 
+# Load ML model
+_MODEL_PATH = os.path.join(
+    os.path.dirname(__file__), "Training_Data", "Model_V6_1.6.pkl"
+)
+try:
+    ai_model = joblib.load(_MODEL_PATH)
+    print(f"ML model loaded: {_MODEL_PATH}")
+except Exception as _e:
+    ai_model = None
+    print(f"Warning: Could not load ML model: {_e}")
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sync-guard-secret-2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MQTT Configuration — sourced from Sync_Guard_Sketch/config.h
-MQTT_BROKER = _config.get("MQTT_SERVER", "172.20.10.4")
+MQTT_BROKER = _config.get("MQTT_SERVER", "192.168.1.101")
 MQTT_PORT = int(_config.get("MQTT_PORT", 1883))
 WIFI_SSID = _config.get("WIFI_SSID", "Unknown")
 
@@ -53,7 +66,6 @@ TOPIC_SERVO_STATE = "syncguard/servo/state"
 
 # --- SENT to ESP32 (dashboard → syncguard) ---
 TOPIC_SERVO_CMD = "syncguard/servo/change-state"
-TOPIC_BLINK_TEST = "syncguard/blink-test"
 
 MQTT_TOPICS = [
     (TOPIC_STATUS, 0),
@@ -104,6 +116,14 @@ weather_data = {
     "clouds": None,
 }
 
+# Weather simulation state
+weather_simulation_mode = False
+simulation_weather_data = {}
+
+# ESP32 simulation state
+esp32_simulation_mode = False
+simulation_sensor_data = {}
+
 # MQTT Client Setup
 mqtt_client = mqtt.Client()
 
@@ -129,7 +149,9 @@ def on_message(client, userdata, msg):
     print(f"[{timestamp}] Received from {topic}: {payload}")
 
     # Emit one raw event per MQTT message — used by the monitor page
-    socketio.emit("mqtt_message", {"topic": topic, "payload": payload, "timestamp": timestamp})
+    socketio.emit(
+        "mqtt_message", {"topic": topic, "payload": payload, "timestamp": timestamp}
+    )
 
     if topic == TOPIC_STATUS:
         is_online = payload in ("online",)
@@ -319,7 +341,8 @@ def fetch_weather_data():
 def weather_update_loop():
     """Periodically fetch weather data"""
     while True:
-        fetch_weather_data()
+        if not weather_simulation_mode:
+            fetch_weather_data()
         time.sleep(WEATHER_UPDATE_INTERVAL)
 
 
@@ -334,6 +357,13 @@ def dashboard():
 def test_page():
     """Serve the LED test page"""
     return render_template("test.html")
+
+
+@app.route("/sounds/<path:filename>")
+def serve_sound(filename):
+    """Serve audio files from the sound_effects directory."""
+    sounds_dir = os.path.join(os.path.dirname(__file__), "sound_effects")
+    return send_from_directory(sounds_dir, filename)
 
 
 @socketio.on("connect")
@@ -374,10 +404,33 @@ def handle_connect():
     )
     if sensor_readings["servo_state"] is not None:
         emit("servo_update", {"state": sensor_readings["servo_state"]})
-    if weather_data.get("temp") is not None:
+    emit("weather_simulation_mode", {"active": weather_simulation_mode})
+    if weather_simulation_mode and simulation_weather_data:
+        emit(
+            "weather_update",
+            {
+                "data": simulation_weather_data,
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+            },
+        )
+    elif weather_data.get("temp") is not None:
         emit(
             "weather_update",
             {"data": weather_data, "timestamp": datetime.now().strftime("%H:%M:%S")},
+        )
+    emit("esp32_simulation_mode", {"active": esp32_simulation_mode})
+    if esp32_simulation_mode and simulation_sensor_data:
+        emit(
+            "sensor_update",
+            {
+                "temperature": simulation_sensor_data.get("temperature"),
+                "pressure": simulation_sensor_data.get("pressure"),
+                "humidity": simulation_sensor_data.get("humidity"),
+                "rain": simulation_sensor_data.get("rain"),
+                "rain_analog": simulation_sensor_data.get("rain_analog"),
+                "servo_state": sensor_readings.get("servo_state"),
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+            },
         )
 
 
@@ -419,7 +472,10 @@ def handle_servo_control(data):
         return
     mqtt_client.publish(TOPIC_SERVO_CMD, command)
     print(f"[{timestamp}] Servo command sent: {command}")
-    socketio.emit("mqtt_message", {"topic": TOPIC_SERVO_CMD, "payload": command, "timestamp": timestamp})
+    socketio.emit(
+        "mqtt_message",
+        {"topic": TOPIC_SERVO_CMD, "payload": command, "timestamp": timestamp},
+    )
 
 
 @socketio.on("request_weather")
@@ -439,6 +495,160 @@ def handle_weather_request():
 
     # Fetch weather data immediately
     fetch_weather_data()
+
+
+@socketio.on("set_weather_simulation")
+def handle_set_weather_simulation(data):
+    """Enable or disable weather simulation mode from the test page."""
+    global weather_simulation_mode, simulation_weather_data
+    active = data.get("active", False)
+    weather_simulation_mode = active
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    if active:
+        simulation_weather_data = data.get("data", {})
+        socketio.emit(
+            "weather_update",
+            {"data": simulation_weather_data, "timestamp": timestamp},
+        )
+        print(
+            f"[{timestamp}] Weather simulation ENABLED: {simulation_weather_data.get('location', '?')}"
+        )
+    else:
+        simulation_weather_data = {}
+        print(f"[{timestamp}] Weather simulation DISABLED")
+        fetch_weather_data()  # Immediately push live data to all clients
+
+    socketio.emit("weather_simulation_mode", {"active": active})
+
+
+@socketio.on("set_esp32_simulation")
+def handle_set_esp32_simulation(data):
+    """Enable or disable ESP32 sensor simulation mode from the test page."""
+    global esp32_simulation_mode, simulation_sensor_data
+    active = data.get("active", False)
+    esp32_simulation_mode = active
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    if active:
+        simulation_sensor_data = data.get("data", {})
+        socketio.emit(
+            "sensor_update",
+            {
+                "temperature": simulation_sensor_data.get("temperature"),
+                "pressure": simulation_sensor_data.get("pressure"),
+                "humidity": simulation_sensor_data.get("humidity"),
+                "rain": simulation_sensor_data.get("rain"),
+                "rain_analog": simulation_sensor_data.get("rain_analog"),
+                "servo_state": sensor_readings.get("servo_state"),
+                "timestamp": timestamp,
+            },
+        )
+        socketio.emit(
+            "status_update",
+            {
+                "online": True,
+                "last_seen": timestamp,
+                "last_heartbeat": timestamp,
+                "uptime": "SIM",
+                "heartbeat_count": None,
+                "status_type": "online",
+            },
+        )
+        print(
+            f"[{timestamp}] ESP32 simulation ENABLED: temp={simulation_sensor_data.get('temperature')}°C"
+        )
+    else:
+        simulation_sensor_data = {}
+        socketio.emit(
+            "status_update",
+            {
+                "online": esp32_status["online"],
+                "last_seen": esp32_status["last_seen"],
+                "last_heartbeat": esp32_status["last_heartbeat"],
+                "uptime": esp32_status["uptime"],
+                "heartbeat_count": esp32_status["heartbeat_count"],
+                "status_type": "online" if esp32_status["online"] else "offline",
+            },
+        )
+        print(f"[{timestamp}] ESP32 simulation DISABLED")
+
+    socketio.emit("esp32_simulation_mode", {"active": active})
+
+
+@socketio.on("run_ai_check")
+def handle_run_ai_check():
+    """Run ML inference on current sensor readings and return result to client."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    if ai_model is None:
+        emit("ai_check_result", {"error": "ML model not loaded"})
+        return
+
+    if esp32_simulation_mode and simulation_sensor_data:
+        temp = simulation_sensor_data.get("temperature")
+        humidity = simulation_sensor_data.get("humidity")
+        rain_analog = simulation_sensor_data.get("rain_analog")
+    else:
+        temp = sensor_readings.get("temperature")
+        humidity = sensor_readings.get("humidity")
+        rain_analog = sensor_readings.get("rain_analog")
+
+    if any(v is None for v in [temp, humidity, rain_analog]):
+        emit(
+            "ai_check_result",
+            {"error": "Sensor data unavailable — is the ESP32 connected?"},
+        )
+        return
+
+    try:
+        input_data = pd.DataFrame(
+            {
+                "temperature": [float(temp)],
+                "humidity": [float(humidity)],
+                "water_sensor": [int(float(rain_analog))],
+            }
+        )
+
+        prediction = int(ai_model.predict(input_data)[0])
+        probabilities = ai_model.predict_proba(input_data)[0].tolist()
+
+        current_weather = (
+            simulation_weather_data
+            if (weather_simulation_mode and simulation_weather_data)
+            else weather_data
+        )
+        weather_rain = float(current_weather.get("rain") or 0)
+        weather_desc = (current_weather.get("description") or "").lower()
+        weather_is_raining = weather_rain > 0 or "rain" in weather_desc
+
+        emit(
+            "ai_check_result",
+            {
+                "timestamp": timestamp,
+                "prediction": prediction,
+                "probabilities": probabilities,
+                "sensor_snapshot": {
+                    "temperature": temp,
+                    "humidity": humidity,
+                    "rain_analog": rain_analog,
+                    "simulated": esp32_simulation_mode,
+                },
+                "weather_snapshot": {
+                    "location": current_weather.get("location"),
+                    "description": current_weather.get("description"),
+                    "rain": weather_rain,
+                    "is_raining": weather_is_raining,
+                    "simulated": weather_simulation_mode,
+                },
+            },
+        )
+        print(
+            f"[{timestamp}] AI Check → pred={prediction}, probs={[round(p, 2) for p in probabilities]}, weather_rain={weather_is_raining}"
+        )
+    except Exception as e:
+        emit("ai_check_result", {"error": str(e)})
+        print(f"[{timestamp}] AI Check Error: {e}")
 
 
 if __name__ == "__main__":

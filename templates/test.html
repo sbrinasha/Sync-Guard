@@ -53,6 +53,127 @@
             </div>
         </div>
 
+        <!-- Weather Simulation Panel -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6 mt-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-medium text-gray-900">Weather Simulation</h2>
+                    <p class="text-xs text-gray-400 mt-1">Override live API data with custom values for testing</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="sim-toggle" class="sr-only peer" onchange="toggleSimulation(this)">
+                    <div
+                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500">
+                    </div>
+                    <span class="ml-3 text-sm font-medium text-gray-700" id="sim-toggle-label">Off</span>
+                </label>
+            </div>
+
+            <div id="sim-inputs" class="hidden">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                        <input type="text" id="sim-location" placeholder="e.g. London" value="Kuching"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Weather Description</label>
+                        <input type="text" id="sim-description" placeholder="e.g. Overcast Clouds" value="Light Rain"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Latitude</label>
+                        <input type="number" id="sim-lat" placeholder="e.g. 51.5074" step="0.0001" value="1.5535"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Longitude</label>
+                        <input type="number" id="sim-lon" placeholder="e.g. -0.1278" step="0.0001" value="110.3593"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Temperature (°C)</label>
+                        <input type="number" id="sim-temp" placeholder="e.g. 18.5" step="0.1" value="30.2"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Humidity (%)</label>
+                        <input type="number" id="sim-humidity" placeholder="e.g. 72" min="0" max="100" value="84"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Rain 1h (mm)</label>
+                        <input type="number" id="sim-rain" placeholder="e.g. 2.5" step="0.1" min="0" value="3.2"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Cloud Cover (%)</label>
+                        <input type="number" id="sim-clouds" placeholder="e.g. 85" min="0" max="100" value="78"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                    </div>
+                </div>
+                <button onclick="applySimulation()"
+                    class="text-sm bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors font-medium">
+                    Apply Simulation Data
+                </button>
+            </div>
+        </div>
+
+        <!-- ESP32-S3 Simulation Panel -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6 mt-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-medium text-gray-900">ESP32-S3 Simulation</h2>
+                    <p class="text-xs text-gray-400 mt-1">Mock sensor readings without a physical device connected</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="esp32-sim-toggle" class="sr-only peer"
+                        onchange="toggleEsp32Simulation(this)">
+                    <div
+                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500">
+                    </div>
+                    <span class="ml-3 text-sm font-medium text-gray-700" id="esp32-sim-toggle-label">Off</span>
+                </label>
+            </div>
+
+            <div id="esp32-sim-inputs" class="hidden">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Temperature (°C)</label>
+                        <input type="number" id="esp32-sim-temp" placeholder="e.g. 28.0" step="0.1" value="32.5"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Humidity (%)</label>
+                        <input type="number" id="esp32-sim-humidity" placeholder="e.g. 70" min="0" max="100" value="82"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Pressure (hPa)</label>
+                        <input type="number" id="esp32-sim-pressure" placeholder="e.g. 1013.0" step="0.1" value="1008.3"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Rain Digital (0 = Dry, 1 =
+                            Rain)</label>
+                        <input type="number" id="esp32-sim-rain-digital" placeholder="0 or 1" min="0" max="1" value="1"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Rain Analog (ADC 0–4095, dry
+                            &lt;100, wet &gt;3000)</label>
+                        <input type="number" id="esp32-sim-rain-analog" placeholder="e.g. 3200" min="0" max="4095"
+                            value="3200"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400">
+                    </div>
+                </div>
+                <button onclick="applyEsp32Simulation()"
+                    class="text-sm bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors font-medium">
+                    Apply Sensor Data
+                </button>
+            </div>
+        </div>
+
     </main>
 
     <script>
@@ -98,6 +219,98 @@
         socket.on('mqtt_message', (data) => {
             addLog(data.topic, data.payload, data.timestamp || now());
         });
+
+        socket.on('weather_simulation_mode', (data) => {
+            addLog('[weather-sim]', data.active ? 'Weather simulation ENABLED' : 'Weather simulation DISABLED', now());
+            // Sync toggle state with server
+            const toggle = document.getElementById('sim-toggle');
+            toggle.checked = data.active;
+            document.getElementById('sim-toggle-label').textContent = data.active ? 'On' : 'Off';
+            const inputs = document.getElementById('sim-inputs');
+            if (data.active) {
+                inputs.classList.remove('hidden');
+            } else {
+                inputs.classList.add('hidden');
+            }
+        });
+
+        socket.on('esp32_simulation_mode', (data) => {
+            addLog('[esp32-sim]', data.active ? 'ESP32 simulation ENABLED' : 'ESP32 simulation DISABLED', now());
+            const toggle = document.getElementById('esp32-sim-toggle');
+            toggle.checked = data.active;
+            document.getElementById('esp32-sim-toggle-label').textContent = data.active ? 'On' : 'Off';
+            const inputs = document.getElementById('esp32-sim-inputs');
+            if (data.active) {
+                inputs.classList.remove('hidden');
+            } else {
+                inputs.classList.add('hidden');
+            }
+        });
+
+        // --- Simulation controls ---
+
+        function toggleSimulation(checkbox) {
+            const isOn = checkbox.checked;
+            document.getElementById('sim-toggle-label').textContent = isOn ? 'On' : 'Off';
+            const inputs = document.getElementById('sim-inputs');
+            if (isOn) {
+                inputs.classList.remove('hidden');
+            } else {
+                inputs.classList.add('hidden');
+                socket.emit('set_weather_simulation', { active: false });
+            }
+        }
+
+        function applySimulation() {
+            const latRaw = document.getElementById('sim-lat').value;
+            const lonRaw = document.getElementById('sim-lon').value;
+            const tempRaw = document.getElementById('sim-temp').value;
+            const humRaw = document.getElementById('sim-humidity').value;
+            const rainRaw = document.getElementById('sim-rain').value;
+            const cloudsRaw = document.getElementById('sim-clouds').value;
+
+            const data = {
+                location: document.getElementById('sim-location').value || 'Simulated City',
+                lat: latRaw !== '' ? parseFloat(latRaw) : null,
+                lon: lonRaw !== '' ? parseFloat(lonRaw) : null,
+                description: document.getElementById('sim-description').value || 'Simulated Weather',
+                temp: tempRaw !== '' ? parseFloat(tempRaw) : null,
+                humidity: humRaw !== '' ? parseInt(humRaw) : null,
+                rain: rainRaw !== '' ? parseFloat(rainRaw) : 0,
+                clouds: cloudsRaw !== '' ? parseInt(cloudsRaw) : null,
+            };
+            socket.emit('set_weather_simulation', { active: true, data });
+        }
+
+        // --- ESP32 Simulation controls ---
+
+        function toggleEsp32Simulation(checkbox) {
+            const isOn = checkbox.checked;
+            document.getElementById('esp32-sim-toggle-label').textContent = isOn ? 'On' : 'Off';
+            const inputs = document.getElementById('esp32-sim-inputs');
+            if (isOn) {
+                inputs.classList.remove('hidden');
+            } else {
+                inputs.classList.add('hidden');
+                socket.emit('set_esp32_simulation', { active: false });
+            }
+        }
+
+        function applyEsp32Simulation() {
+            const data = {
+                temperature: document.getElementById('esp32-sim-temp').value !== ''
+                    ? parseFloat(document.getElementById('esp32-sim-temp').value) : null,
+                humidity: document.getElementById('esp32-sim-humidity').value !== ''
+                    ? parseFloat(document.getElementById('esp32-sim-humidity').value) : null,
+                pressure: document.getElementById('esp32-sim-pressure').value !== ''
+                    ? parseFloat(document.getElementById('esp32-sim-pressure').value) : null,
+                rain: document.getElementById('esp32-sim-rain-digital').value !== ''
+                    ? parseInt(document.getElementById('esp32-sim-rain-digital').value) : null,
+                rain_analog: document.getElementById('esp32-sim-rain-analog').value !== ''
+                    ? parseInt(document.getElementById('esp32-sim-rain-analog').value) : null,
+            };
+            socket.emit('set_esp32_simulation', { active: true, data });
+        }
 
         // --- Connection status indicator ---
 

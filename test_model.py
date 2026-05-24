@@ -2,7 +2,7 @@ import joblib
 import pandas as pd
 
 # Load the trained model
-model = joblib.load("Training_Data/Model_V5.pkl")
+model = joblib.load("Training_Data/Model_V6_1.6.pkl")
 
 print("=== Sync Guard Model Tester ===")
 print("Enter sensor values to predict action\n")

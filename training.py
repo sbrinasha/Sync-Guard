@@ -28,7 +28,7 @@ model.fit(X_train, y_train)
 score = model.score(X_test, y_test)
 
 # Save model
-joblib.dump(model, "Training_Data/Model_V5.pkl")
+joblib.dump(model, "Training_Data/Model_V6_1.6.pkl")
 
 print("Model trained and saved!")
 print(f"Model accuracy: {score * 100:.2f}%")

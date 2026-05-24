@@ -97,7 +97,7 @@
 
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             max-width: 1200px;
             margin: 0 auto;
@@ -146,6 +146,108 @@
         .status-badge.offline {
             background-color: #fadbd8;
             color: #c0392b;
+        }
+
+        .status-badge.simulating {
+            background-color: #d6eaf8;
+            color: #1a5276;
+        }
+
+        .status-badge.simulating-esp {
+            background-color: #e8daef;
+            color: #6c3483;
+        }
+
+        /* ── AI Engine block ── */
+        .ai-mode-select {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            background: white;
+            color: #34495e;
+            cursor: pointer;
+        }
+
+        .ai-body-grid {
+            display: grid;
+            grid-template-columns: 200px 1fr 210px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .ai-section-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+
+        .prob-display {
+            display: flex;
+            margin-top: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .prob-cell {
+            flex: 1;
+            text-align: center;
+            padding: 9px 4px;
+        }
+
+        .prob-cell:not(:last-child) {
+            border-right: 1px solid #eee;
+        }
+
+        .prob-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .prob-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .decision-box {
+            text-align: center;
+            padding: 14px;
+            border-radius: 8px;
+            background: #f2f3f4;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+
+        .decision-value {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: #7f8c8d;
+        }
+
+        .decision-reason {
+            font-size: 0.7rem;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        .decision-meta {
+            font-size: 0.78rem;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .decision-meta-label {
+            font-weight: 600;
+            color: #555;
+            white-space: nowrap;
         }
 
         /* Sensor Data Styles */
@@ -494,6 +596,7 @@
 </head>
 
 <body>
+    <audio id="alarm-audio" src="/sounds/alarm_sound.mp3" preload="auto"></audio>
 
     <header>
         <h1>SyncGuard Dashboard</h1>
@@ -552,7 +655,7 @@
         <div class="card">
             <div class="card-header">
                 <h2>OpenWeather Data (API)</h2>
-                <span class="status-badge online">Online</span>
+                <span id="weather-api-badge" class="status-badge online">Online</span>
             </div>
             <div class="sensor-data">
                 <span>Location:</span>
@@ -587,56 +690,119 @@
                 style="background-color: #3498db; width: 100%; margin-top: 10px;">Refresh Weather</button>
         </div>
 
-        <div class="card">
+        <div class="card" style="grid-column: 1 / -1;">
             <div class="card-header">
                 <h2>AI Risk Engine</h2>
-                <span class="status-badge online">Online</span>
-            </div>
-
-            <!-- Checking Interval Timer -->
-            <div class="check-timer-section">
-                <div class="check-timer-label">Next Check In</div>
-                <div class="check-timer-display">
-                    <span id="check-countdown">30:00</span>
-                    <button class="btn-edit-interval" onclick="openIntervalModal()">Edit</button>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <label style="font-size: 0.78rem; font-weight: 600; color: #555; white-space: nowrap;">Decision
+                            Mode:</label>
+                        <select id="decision-mode" class="ai-mode-select">
+                            <option value="weather_api">Prioritize Weather API</option>
+                            <option value="ml">Prioritize Machine Learning</option>
+                            <option value="adaptive" selected>Adaptive Mode</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <label style="font-size: 0.78rem; font-weight: 600; color: #555; white-space: nowrap;">Servo
+                            Mode:</label>
+                        <select id="servo-mode" class="ai-mode-select">
+                            <option value="warning">Warning (Ask First)</option>
+                            <option value="autopilot">Autopilot (Auto-close)</option>
+                        </select>
+                    </div>
+                    <span class="status-badge online">Online</span>
                 </div>
             </div>
 
-            <!-- Latest Local Sensor Reading -->
-            <div class="last-check-section">
-                <div class="last-check-header">
-                    <span>Latest Sensor Reading</span>
-                    <span class="last-check-time" id="last-check-time">Not yet checked</span>
-                </div>
-                <div class="sensor-data">
-                    <span>Temperature:</span>
-                    <span class="sensor-value" id="engine-temp">--</span>
-                </div>
-                <div class="sensor-data">
-                    <span>Humidity:</span>
-                    <span class="sensor-value" id="engine-humidity">--</span>
-                </div>
-                <div class="sensor-data">
-                    <span>Rain Sensor:</span>
-                    <span class="sensor-value" id="engine-rain">--</span>
-                </div>
-                <div class="sensor-data" style="margin-top: 10px;">
-                    <span>Status:</span>
-                    <span id="engine-status" class="check-status-badge pending">Pending</span>
-                </div>
-            </div>
+            <div class="ai-body-grid">
+                <!-- Left: Timer + Snapshot + Check Now -->
+                <div>
+                    <div class="check-timer-section">
+                        <div class="check-timer-label">Next Check In</div>
+                        <div class="check-timer-display">
+                            <span id="check-countdown">30:00</span>
+                            <button class="btn-edit-interval" onclick="openIntervalModal()">Edit</button>
+                        </div>
+                    </div>
 
-            <button class="btn-check-now" onclick="checkNow()">Check Now</button>
-        </div>
+                    <div class="last-check-section">
+                        <div class="last-check-header">
+                            <span>Sensor Snapshot</span>
+                            <span class="last-check-time" id="last-check-time">Not checked</span>
+                        </div>
+                        <div class="sensor-data">
+                            <span>Temperature:</span>
+                            <span class="sensor-value" id="engine-temp">--</span>
+                        </div>
+                        <div class="sensor-data">
+                            <span>Humidity:</span>
+                            <span class="sensor-value" id="engine-humidity">--</span>
+                        </div>
+                        <div class="sensor-data">
+                            <span>Rain Sensor:</span>
+                            <span class="sensor-value" id="engine-rain">--</span>
+                        </div>
+                        <div class="sensor-data" style="margin-top: 10px;">
+                            <span>ML Status:</span>
+                            <span id="engine-status" class="check-status-badge pending">Pending</span>
+                        </div>
+                    </div>
 
-        <div class="card">
-            <h2>Actuator Control</h2>
-            <div class="actuator-status">
-                Servo Status: <span id="servo-status" style="color: #7f8c8d;">UNKNOWN</span>
-            </div>
-            <div class="btn-group">
-                <button class="btn-open" onclick="servoControl('open')">Open</button>
-                <button class="btn-close" onclick="servoControl('close')">Close</button>
+                    <button class="btn-check-now" onclick="checkNow()">Check Now</button>
+                </div>
+
+                <!-- Center: Probability line chart + current values -->
+                <div>
+                    <div class="ai-section-label">Probability History</div>
+                    <div style="position: relative; height: 180px;">
+                        <canvas id="prob-chart"></canvas>
+                    </div>
+                    <div class="prob-display">
+                        <div class="prob-cell">
+                            <div class="prob-label" style="color: #2ecc71;">OPEN</div>
+                            <div class="prob-value" id="prob-open" style="color: #2ecc71;">--%</div>
+                        </div>
+                        <div class="prob-cell">
+                            <div class="prob-label" style="color: #f39c12;">WARNING</div>
+                            <div class="prob-value" id="prob-warning" style="color: #f39c12;">--%</div>
+                        </div>
+                        <div class="prob-cell">
+                            <div class="prob-label" style="color: #e74c3c;">CLOSE</div>
+                            <div class="prob-value" id="prob-close" style="color: #e74c3c;">--%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Decision result + Actuator control -->
+                <div>
+                    <div class="ai-section-label">Decision &amp; Control</div>
+                    <div class="decision-box" id="decision-result-box">
+                        <div class="decision-value" id="decision-label">--</div>
+                        <div class="decision-reason" id="decision-reason">No check yet</div>
+                    </div>
+                    <div class="decision-meta">
+                        <span class="decision-meta-label">Weather API:</span>
+                        <span id="decision-weather" style="color: #7f8c8d;">--</span>
+                    </div>
+                    <div class="decision-meta">
+                        <span class="decision-meta-label">ML Prediction:</span>
+                        <span id="decision-ml" style="color: #7f8c8d;">--</span>
+                    </div>
+                    <div class="decision-meta" style="margin-bottom: 14px;">
+                        <span class="decision-meta-label">Action:</span>
+                        <span id="decision-action" style="color: #7f8c8d;">--</span>
+                    </div>
+                    <div style="border-top: 1px solid #eee; padding-top: 12px;">
+                        <div style="font-size: 0.78rem; color: #7f8c8d; margin-bottom: 8px; text-align: center;">
+                            Servo: <span id="servo-status" style="font-weight: 700; color: #7f8c8d;">UNKNOWN</span>
+                        </div>
+                        <div class="btn-group" style="margin-top: 0;">
+                            <button class="btn-open" onclick="servoControl('open')">Open</button>
+                            <button class="btn-close" onclick="servoControl('close')">Close</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -658,6 +824,48 @@
         </div>
     </div>
 
+    <!-- Warning Confirm Modal -->
+    <div id="warning-confirm-modal" class="modal-overlay" onclick="dismissWarningModal(event)">
+        <div class="modal-box" style="max-width: 420px;">
+            <h3 style="color: #e74c3c; margin-bottom: 6px;">&#9888; Rain Alert &mdash; Action Required</h3>
+            <p id="warn-modal-reason"
+                style="font-size: 0.88rem; font-weight: 600; color: #34495e; margin-bottom: 12px;"></p>
+            <div
+                style="background: #f8f9fa; border-radius: 6px; padding: 12px; margin-bottom: 14px; font-size: 0.84rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div>
+                        <div style="color: #7f8c8d; font-size: 0.73rem;">ML Prediction</div>
+                        <div style="font-weight: 700; color: #34495e;" id="warn-modal-ml">--</div>
+                    </div>
+                    <div>
+                        <div style="color: #7f8c8d; font-size: 0.73rem;">Weather API</div>
+                        <div style="font-weight: 700; color: #34495e;" id="warn-modal-weather">--</div>
+                    </div>
+                    <div>
+                        <div style="color: #7f8c8d; font-size: 0.73rem;">Temperature</div>
+                        <div style="font-weight: 700; color: #34495e;" id="warn-modal-temp">--</div>
+                    </div>
+                    <div>
+                        <div style="color: #7f8c8d; font-size: 0.73rem;">Humidity</div>
+                        <div style="font-weight: 700; color: #34495e;" id="warn-modal-humidity">--</div>
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <div style="color: #7f8c8d; font-size: 0.73rem;">Rain Sensor (ADC 0-4095)</div>
+                        <div style="font-weight: 700; color: #34495e;" id="warn-modal-rain">--</div>
+                    </div>
+                </div>
+            </div>
+            <p style="font-size: 0.82rem; color: #7f8c8d; margin-bottom: 16px;">Close the window now, or dismiss to take
+                no action.</p>
+            <div class="modal-btn-group">
+                <button onclick="confirmCloseWindow()" style="background: #e74c3c; color: white;">Close Window</button>
+                <button onclick="dismissWarning()">Dismiss</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Socket.IO for real-time updates -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
@@ -680,12 +888,20 @@
             document.getElementById('conn-mqtt').innerText = `${data.mqtt_broker}:${data.mqtt_port}`;
         });
 
+        // ESP32 simulation state tracker
+        let esp32SimActive = false;
+        let _esp32Online = false;
+
         // Listen for ESP32 status updates
         socket.on('status_update', (data) => {
             const badge = document.getElementById('esp32-status-badge');
             const lastReportedEl = document.getElementById('last-reported');
+            _esp32Online = data.online;
 
-            if (data.online) {
+            if (esp32SimActive) {
+                badge.innerText = 'Online';
+                badge.className = 'status-badge simulating-esp';
+            } else if (data.online) {
                 badge.innerText = 'Online';
                 badge.className = 'status-badge online';
                 console.log(`[${getTimestamp()}] ✅ ESP32 is ONLINE`);
@@ -699,6 +915,18 @@
 
             if (data.uptime !== undefined && data.uptime !== null)
                 document.getElementById('heartbeat-val').innerText = data.uptime + ' s';
+        });
+
+        socket.on('esp32_simulation_mode', (data) => {
+            esp32SimActive = data.active;
+            const badge = document.getElementById('esp32-status-badge');
+            if (data.active) {
+                badge.className = 'status-badge simulating-esp';
+                badge.innerText = 'Online';
+            } else {
+                badge.className = _esp32Online ? 'status-badge online' : 'status-badge offline';
+                badge.innerText = _esp32Online ? 'Online' : 'Offline';
+            }
         });
 
         // Listen for sensor data updates
@@ -739,6 +967,16 @@
             mcStaleTimer = setTimeout(() => {
                 dot.className = 'live-dot stale';
             }, 30000);
+        });
+
+        // Listen for weather simulation mode changes
+        socket.on('weather_simulation_mode', (data) => {
+            const badge = document.getElementById('weather-api-badge');
+            if (data.active) {
+                badge.className = 'status-badge simulating';
+            } else {
+                badge.className = 'status-badge online';
+            }
         });
 
         // Listen for weather data updates
@@ -799,6 +1037,7 @@
         }
 
         function resetWatchdog() {
+            if (esp32SimActive) return;
             const badge = document.getElementById('esp32-status-badge');
 
             // Mark as online when data is received
@@ -810,6 +1049,7 @@
 
             // If no new data is received in 15 seconds, mark as offline
             watchdogTimer = setTimeout(() => {
+                if (esp32SimActive) return;
                 badge.innerText = 'Offline';
                 badge.className = 'status-badge offline';
                 console.warn(`[${getTimestamp()}] ⚠️ SYSTEM OFFLINE: Connection to MQTT Broker lost. Dashboard data is frozen.`);
@@ -918,45 +1158,246 @@
         }
 
         function checkNow() {
-            const timestamp = new Date().toLocaleTimeString('en-GB');
-            document.getElementById('last-check-time').innerText = `Last checked: ${timestamp}`;
-            // Snapshot current sensor values from the local micro-climate card
-            const tempText = document.getElementById('temp-val').innerText;
-            const humText = document.getElementById('hum-val').innerText;
-            const rainText = document.getElementById('rain-val').innerText;
-            document.getElementById('engine-temp').innerText = tempText;
-            document.getElementById('engine-humidity').innerText = humText;
-            document.getElementById('engine-rain').innerText = rainText;
-
-            // Derive status from sensor readings
             const statusEl = document.getElementById('engine-status');
-            const rainVal = parseFloat(rainText);
-            const tempVal = parseFloat(tempText);
-            const humVal = parseFloat(humText);
+            statusEl.className = 'check-status-badge pending';
+            statusEl.innerText = 'Checking\u2026';
+            socket.emit('run_ai_check');
+            startCountdown();
+        }
 
-            statusEl.className = 'check-status-badge';
-            if (!isNaN(rainVal) && rainVal > 500) {
-                statusEl.classList.add('rain');
-                statusEl.innerText = 'Rain Detected';
-            } else if ((!isNaN(tempVal) && tempVal > 35) || (!isNaN(humVal) && humVal > 90)) {
-                statusEl.classList.add('warning');
-                statusEl.innerText = 'Warning';
-            } else if (!isNaN(tempVal)) {
-                statusEl.classList.add('safe');
-                statusEl.innerText = 'Safe';
-            } else {
-                statusEl.classList.add('pending');
-                statusEl.innerText = 'Pending';
+        // ─── AI RISK ENGINE ──────────────────────────────────────────────────
+        const checkHistory = [];
+        const MAX_HISTORY = 10;
+        let probChart = null;
+
+        function initProbChart() {
+            const ctx = document.getElementById('prob-chart').getContext('2d');
+            probChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'OPEN', data: [], borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,0.08)', tension: 0.35, fill: true, pointRadius: 3, pointHoverRadius: 5 },
+                        { label: 'WARNING', data: [], borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.08)', tension: 0.35, fill: true, pointRadius: 3, pointHoverRadius: 5 },
+                        { label: 'CLOSE', data: [], borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.08)', tension: 0.35, fill: true, pointRadius: 3, pointHoverRadius: 5 },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            min: 0, max: 100,
+                            ticks: { callback: v => v + '%', font: { size: 10 }, stepSize: 25 },
+                            grid: { color: 'rgba(0,0,0,0.04)' }
+                        },
+                        x: { ticks: { font: { size: 9 }, maxRotation: 0 } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 10, padding: 8 } },
+                        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } }
+                    },
+                    animation: { duration: 400 }
+                }
+            });
+        }
+
+        function updateProbChart(probabilities, label) {
+            if (!probChart) return;
+            checkHistory.push({ label, probabilities });
+            if (checkHistory.length > MAX_HISTORY) checkHistory.shift();
+            probChart.data.labels = checkHistory.map(h => h.label);
+            probChart.data.datasets[0].data = checkHistory.map(h => +(h.probabilities[0] * 100).toFixed(1));
+            probChart.data.datasets[1].data = checkHistory.map(h => +(h.probabilities[1] * 100).toFixed(1));
+            probChart.data.datasets[2].data = checkHistory.map(h => +(h.probabilities[2] * 100).toFixed(1));
+            probChart.update();
+        }
+
+        socket.on('ai_check_result', (result) => {
+            if (result.error) {
+                const statusEl = document.getElementById('engine-status');
+                statusEl.className = 'check-status-badge pending';
+                statusEl.innerText = 'Error';
+                showToast('AI Check Error: ' + result.error, '#e74c3c');
+                return;
             }
 
-            // Reset countdown after manual check
-            startCountdown();
+            const probs = result.probabilities;
+            const ts = result.timestamp;
+
+            // Probability numbers
+            document.getElementById('prob-open').innerText = (probs[0] * 100).toFixed(1) + '%';
+            document.getElementById('prob-warning').innerText = (probs[1] * 100).toFixed(1) + '%';
+            document.getElementById('prob-close').innerText = (probs[2] * 100).toFixed(1) + '%';
+
+            // Chart
+            updateProbChart(probs, ts);
+
+            // Sensor snapshot
+            document.getElementById('last-check-time').innerText = `Last: ${ts}`;
+            if (result.sensor_snapshot) {
+                const s = result.sensor_snapshot;
+                document.getElementById('engine-temp').innerText = s.temperature ? parseFloat(s.temperature).toFixed(1) + ' \u00b0C' : '--';
+                document.getElementById('engine-humidity').innerText = s.humidity ? parseFloat(s.humidity).toFixed(1) + ' %' : '--';
+                document.getElementById('engine-rain').innerText = s.rain_analog != null ? s.rain_analog : '--';
+            }
+
+            // ML status badge
+            const statusEl = document.getElementById('engine-status');
+            statusEl.className = 'check-status-badge';
+            if (result.prediction === 0) { statusEl.classList.add('safe'); statusEl.innerText = 'Safe'; }
+            else if (result.prediction === 1) { statusEl.classList.add('warning'); statusEl.innerText = 'Caution'; }
+            else { statusEl.classList.add('rain'); statusEl.innerText = 'Close'; }
+
+            applyDecision(result);
+        });
+
+        // ─── DECISION LOGIC ──────────────────────────────────────────────────
+        function applyDecision(result) {
+            const mode = document.getElementById('decision-mode').value;
+            const servo = document.getElementById('servo-mode').value;
+            const probs = result.probabilities;
+            const pred = result.prediction;
+            const weatherRaining = result.weather_snapshot.is_raining;
+            const mlNames = ['OPEN', 'WARNING', 'CLOSE'];
+
+            let shouldClose = false;
+            let isWarning = false;
+            let reason = '';
+
+            if (mode === 'weather_api') {
+                shouldClose = weatherRaining;
+                reason = weatherRaining ? 'Weather API reports rain' : 'Weather API reports clear';
+            } else if (mode === 'ml') {
+                shouldClose = pred === 2;
+                isWarning = pred === 1;
+                reason = `ML predicts ${mlNames[pred]} (${(probs[pred] * 100).toFixed(0)}%)`;
+            } else {
+                // Adaptive
+                if (pred === 2) {
+                    shouldClose = true;
+                    reason = `ML strongly predicts CLOSE (${(probs[2] * 100).toFixed(0)}%)`;
+                } else if (pred === 1) {
+                    if (weatherRaining) {
+                        shouldClose = true;
+                        reason = `ML Caution + Weather API confirms rain`;
+                    } else {
+                        isWarning = true;
+                        reason = `ML Caution \u2014 Weather API clear, holding`;
+                    }
+                } else {
+                    reason = `ML predicts OPEN \u2014 no action needed`;
+                }
+            }
+
+            // Update decision display
+            const box = document.getElementById('decision-result-box');
+            const label = document.getElementById('decision-label');
+            const rsn = document.getElementById('decision-reason');
+            const weEl = document.getElementById('decision-weather');
+            const mlEl = document.getElementById('decision-ml');
+            const actEl = document.getElementById('decision-action');
+
+            weEl.innerText = weatherRaining
+                ? `Raining (${result.weather_snapshot.rain} mm)${result.weather_snapshot.simulated ? ' [sim]' : ''}`
+                : `Clear${result.weather_snapshot.simulated ? ' [sim]' : ''}`;
+            weEl.style.color = weatherRaining ? '#e74c3c' : '#2ecc71';
+
+            mlEl.innerText = `${mlNames[pred]} \u2014 ${(probs[pred] * 100).toFixed(0)}%`;
+            rsn.innerText = reason;
+
+            if (shouldClose) {
+                label.innerText = 'CLOSE';
+                label.style.color = '#e74c3c';
+                box.style.background = '#fadbd8';
+                if (servo === 'autopilot') {
+                    servoControl('close');
+                    actEl.innerText = 'Auto-closed';
+                    actEl.style.color = '#e74c3c';
+                    showToast(`Autopilot: Window closed \u2014 ${reason}`);
+                } else {
+                    actEl.innerText = 'Awaiting confirmation';
+                    actEl.style.color = '#f39c12';
+                    playAlarm();
+                    showWarningConfirmModal(result, reason);
+                }
+            } else if (isWarning) {
+                label.innerText = 'CAUTION';
+                label.style.color = '#f39c12';
+                box.style.background = '#fef9e7';
+                actEl.innerText = 'Monitoring \u2014 no action';
+                actEl.style.color = '#f39c12';
+                playAlarm();
+                showToast(`Caution: ${reason}`, '#f39c12');
+            } else {
+                label.innerText = 'OPEN';
+                label.style.color = '#2ecc71';
+                box.style.background = '#d5f5e3';
+                actEl.innerText = 'No action \u2014 safe';
+                actEl.style.color = '#2ecc71';
+            }
+        }
+
+        function playAlarm() {
+            const audio = document.getElementById('alarm-audio');
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play().catch(() => { });
+        }
+
+        function showToast(message, color) {
+            color = color || '#34495e';
+            const t = document.createElement('div');
+            t.style.cssText = `position:fixed;top:20px;right:20px;background:${color};color:white;padding:12px 18px;border-radius:8px;font-size:0.84rem;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,0.2);max-width:340px;line-height:1.4;`;
+            t.innerText = message;
+            document.body.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.4s'; setTimeout(() => t.remove(), 400); }, 5000);
+        }
+
+        let pendingCloseResult = null;
+
+        function showWarningConfirmModal(result, reason) {
+            pendingCloseResult = result;
+            const mlNames = ['OPEN', 'WARNING', 'CLOSE'];
+            const probs = result.probabilities;
+            document.getElementById('warn-modal-reason').innerText = reason;
+            document.getElementById('warn-modal-ml').innerText = `${mlNames[result.prediction]} \u2014 ${(probs[result.prediction] * 100).toFixed(0)}% confidence`;
+            const wr = result.weather_snapshot;
+            document.getElementById('warn-modal-weather').innerText = wr.is_raining
+                ? `Raining \u2014 ${wr.rain} mm (${wr.description || ''})${wr.simulated ? ' [sim]' : ''}`
+                : `Clear (${wr.description || '--'})${wr.simulated ? ' [sim]' : ''}`;
+            const s = result.sensor_snapshot;
+            document.getElementById('warn-modal-temp').innerText = s.temperature ? parseFloat(s.temperature).toFixed(1) + ' \u00b0C' : '--';
+            document.getElementById('warn-modal-humidity').innerText = s.humidity ? parseFloat(s.humidity).toFixed(1) + ' %' : '--';
+            document.getElementById('warn-modal-rain').innerText = s.rain_analog != null ? s.rain_analog : '--';
+            document.getElementById('warning-confirm-modal').classList.add('active');
+        }
+
+        function confirmCloseWindow() {
+            servoControl('close');
+            document.getElementById('decision-action').innerText = 'Closed by user confirmation';
+            document.getElementById('decision-action').style.color = '#e74c3c';
+            document.getElementById('warning-confirm-modal').classList.remove('active');
+            pendingCloseResult = null;
+        }
+
+        function dismissWarning() {
+            document.getElementById('decision-action').innerText = 'Dismissed \u2014 no action';
+            document.getElementById('decision-action').style.color = '#7f8c8d';
+            document.getElementById('warning-confirm-modal').classList.remove('active');
+            pendingCloseResult = null;
+        }
+
+        function dismissWarningModal(e) {
+            if (!e || e.target === document.getElementById('warning-confirm-modal')) dismissWarning();
         }
 
         // Initialize script
         startClock();
         startCountdown();
-        console.log(`[${getTimestamp()}] 🚀 SyncGuard Dashboard Initialized. Waiting for MQTT data...`);
+        initProbChart();
+        console.log(`[${getTimestamp()}] \ud83d\ude80 SyncGuard Dashboard Initialized. Waiting for MQTT data...`);
     </script>
 </body>
 

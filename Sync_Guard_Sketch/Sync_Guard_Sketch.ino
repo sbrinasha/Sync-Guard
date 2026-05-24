@@ -3,7 +3,6 @@
 #include <ESP32Servo.h>
 #include <Wire.h>
 #include <SparkFunBME280.h>
-#include <DHT.h>
 #include "config.h"
 
 // ===== GPIO Pins =====
@@ -14,11 +13,9 @@
 #define LED_GREEN     10  
 
 #define SERVO_PIN     16  
-#define RAIN_DO_PIN   22
-#define RAIN_AO_PIN   34
+#define RAIN_DO_PIN   20
+#define RAIN_AO_PIN   21
 #define BUTTON_PIN    15  // Button: GPIO 15 > Button > GND
-#define DHT_PIN       42  // Placeholder - Change to actual GPIO pin later
-#define DHT_TYPE      DHT22
 
 // ===== BME280 Configuration (SparkFun) =====
 #define BME280_I2C_ADDR 0x76  // Change to 0x77 if needed
@@ -52,7 +49,6 @@ WiFiClient espClient;
 PubSubClient mqtt(espClient);
 Servo myServo;
 BME280 bme;
-DHT dht(DHT_PIN, DHT_TYPE);
 
 // ===== State Variables =====
 bool wifiConnected = false;
@@ -99,10 +95,6 @@ void setup() {
   // Initialize Rain Sensor
   pinMode(RAIN_DO_PIN, INPUT);
   Serial.println("Rain sensor initialized.");
-
-  // Initialize DHT
-  dht.begin();
-  Serial.println("DHT initialized.");
 
   // Initialize BME280 (SparkFun)
   Wire.begin(BME280_SDA_PIN, BME280_SCL_PIN);
@@ -245,19 +237,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
 // ===== Sensor Functions =====
 void readSensors() {
-  // --- DHT (Humidity only) ---
-  float humidity = dht.readHumidity();
-  if (!isnan(humidity)) {
-    Serial.print("Humidity: "); Serial.print(humidity); Serial.println(" %");
-    if (mqttConnected) {
-      char buf[16];
-      snprintf(buf, sizeof(buf), "%.2f", humidity);
-      mqtt.publish(MQTT_TOPIC_HUMIDITY, buf);
-    }
-  } else {
-    Serial.println("DHT read failed!");
-  }
-
   // --- Rain Sensor ---
   bool isRaining = (digitalRead(RAIN_DO_PIN) == LOW);  // LOW = rain detected
   int rainAnalog = analogRead(RAIN_AO_PIN);            // 0-4095, lower = wetter
@@ -278,9 +257,11 @@ void readSensors() {
   if (bmpAvailable) {
     float temperature = bme.readTempC();              // Celsius
     float pressure    = bme.readFloatPressure() / 100.0F; // hPa
+    float humidity    = bme.readFloatHumidity();      // %RH
 
     Serial.print("Temp: ");     Serial.print(temperature); Serial.print(" C | ");
-    Serial.print("Pressure: "); Serial.print(pressure);    Serial.println(" hPa");
+    Serial.print("Pressure: "); Serial.print(pressure);    Serial.print(" hPa | ");
+    Serial.print("Humidity: "); Serial.print(humidity);    Serial.println(" %");
 
     if (mqttConnected) {
       char buf[64];
@@ -289,10 +270,15 @@ void readSensors() {
 
       snprintf(buf, sizeof(buf), "%.2f", pressure);
       mqtt.publish(MQTT_TOPIC_PRESSURE, buf);
+
+      snprintf(buf, sizeof(buf), "%.2f", humidity);
+      mqtt.publish(MQTT_TOPIC_HUMIDITY, buf);
     }
-  // --- Servo State ---
-  if (mqttConnected) {
-    mqtt.publish(MQTT_TOPIC_SERVO_POS, servoOpen ? "open" : "closed");
+
+    // --- Servo State ---
+    if (mqttConnected) {
+      mqtt.publish(MQTT_TOPIC_SERVO_POS, servoOpen ? "open" : "closed");
+    }
   }
 }
 
