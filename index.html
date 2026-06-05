@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncGuard | AI-Driven Smart Home Automation</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <div class="container header-container">
+            <h1 class="logo">Sabrina Asha</h1>
+            <nav>
+                <ul>
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#architecture">Architecture</a></li>
+                    <li><a href="#results">Results</a></li>
+                    <li><a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="btn outline">View GitHub</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container hero-content">
+            <h2>SyncGuard</h2>
+            <h3>AI-Driven Smart Home Automation System for Adaptive Safety</h3>
+            <p>Bridging the gap between physical hardware and intelligent software to eliminate "alarm fatigue" using sensor fusion and machine learning.</p>
+            <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="btn primary">Explore the Code</a>
+        </div>
+    </section>
+
+    <section id="overview" class="container section">
+        <h2 class="section-title">The Problem: Alarm Fatigue</h2>
+        <div class="text-block">
+            <p>Traditional smart home safety systems rely on fixed-threshold logic, triggering immediate alarms upon detecting environmental changes. This lack of contextual verification frequently leads to false positives—such as a spilled drink triggering a rain protocol or transient humidity spikes closing windows unnecessarily. Over time, this diminishes user trust.</p>
+            <p><strong>SyncGuard solves this.</strong> By cross-referencing local sensor data with global meteorological forecasts, it implements an <em>Adaptive Safety</em> framework that intelligently distinguishes between localized anomalies and genuine weather threats.</p>
+        </div>
+    </section>
+
+    <section id="architecture" class="bg-light">
+        <div class="container section">
+            <h2 class="section-title">System Architecture</h2>
+            <div class="grid cards">
+                <div class="card">
+                    <div class="card-icon">📟</div>
+                    <h3>Edge Layer</h3>
+                    <p>Powered by an <strong>ESP32-S3</strong> microcontroller, gathering micro-climate telemetry using a BME280 sensor and analog rain sensors.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">📡</div>
+                    <h3>Communication</h3>
+                    <p>Low-latency telemetry streaming using the lightweight <strong>MQTT protocol</strong> (Eclipse Mosquitto broker) via JSON payloads.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">🧠</div>
+                    <h3>AI Engine</h3>
+                    <p>A Python-based backend that fuses local data with OpenWeather API forecasts, analyzed by a <strong>Random Forest Classifier</strong>.</p>
+                </div>
+                <div class="card">
+                    <div class="card-icon">💻</div>
+                    <h3>Presentation</h3>
+                    <p>A live <strong>Flask-based dashboard</strong> providing real-time telemetry visualization, AI state indication, and manual override controls.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="results" class="container section">
+        <h2 class="section-title">Empirical Results</h2>
+        <div class="grid stats">
+            <div class="stat-box">
+                <h3 class="stat-number">100%</h3>
+                <p>False Positive Mitigation</p>
+            </div>
+            <div class="stat-box">
+                <h3 class="stat-number">1.2s</h3>
+                <p>Average End-to-End Latency</p>
+            </div>
+            <div class="stat-box">
+                <h3 class="stat-number">3</h3>
+                <p>Adaptive Safety States (Safe, Caution, Critical)</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Sabrina Asha A/P Gopinathan. Faculty of Computer Science and Information Technology, Universiti Malaysia Sarawak.</p>
+        </div>
+    </footer>
+
+</body>
+</html>
