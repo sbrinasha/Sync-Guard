@@ -5,105 +5,207 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sabrina Asha | Portfolio</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
     <header>
         <div class="container nav-container">
-            <div class="logo"><span>>_</span> Sabrina Asha</div>
-            <nav class="nav-links">
+            <a href="#" class="logo">Sabrina.</a>
+            
+            <nav class="nav-menu">
                 <a href="#home" class="active">Home</a>
-                <a href="#projects">Projects</a>
                 <a href="#about">About</a>
+                <a href="#skills">Skills</a>
+                <a href="#projects">Projects</a>
+                <a href="#contact">Contact</a>
             </nav>
-            <div class="nav-icons">
-                <a href="mailto:82929@siswa.unimas.my"><i class="fa-solid fa-envelope"></i></a>
-                <a href="https://github.com/sbrinasha" target="_blank"><i class="fa-brands fa-github"></i></a>
+
+            <div class="nav-right">
+                <button class="theme-btn"><i class="fa-solid fa-moon"></i></button>
+                <div class="mobile-toggle"><i class="fa-solid fa-bars"></i></div>
             </div>
         </div>
     </header>
 
     <section id="home" class="hero container">
         <div class="hero-content">
-            <h1>Sabrina Asha</h1>
-            <p class="bio">
-                Information System Undergraduate and freelance developer based in Malaysia. I specialize in bridging the gap between physical hardware and intelligent software, with a strong focus on IoT development, embedded systems, and machine learning.
-            </p>
-            <p class="academic-info">
-                CGPA: 3.30 | Faculty of Computer Science and Information Technology, Universiti Malaysia Sarawak.
-            </p>
-            <span class="badge purple-badge"><i class="fa-solid fa-code"></i> IoT Developer</span>
-        </div>
-        <div class="hero-image-container">
-            <img src="https://via.placeholder.com/400x500/1e1e2f/9333ea?text=Your+Picture+Here" alt="Sabrina Asha" class="profile-img">
-        </div>
-    </section>
+            <span class="role-badge">Information System Undergraduate</span>
+            <h1>Sabrina <span class="text-gradient">Asha</span></h1>
+            <h2>IoT & Software Developer</h2>
+            <p>I build intelligent, responsive systems bridging the gap between physical hardware and software, focusing on IoT development, embedded systems, and machine learning.</p>
+            
+            <div class="hero-btns">
+                <a href="#projects" class="btn primary-btn">View My Work <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="#contact" class="btn outline-btn">Contact Me</a>
+            </div>
 
-    <section class="competencies container">
-        <div class="comp-card">
-            <i class="fa-solid fa-microchip text-purple"></i>
-            <h3>Embedded Systems</h3>
-            <p>Proficient in C++ and Arduino IDE for microcontrollers like the ESP32-S3, integrating various analog sensors and actuators.</p>
+            <div class="social-links">
+                <a href="https://github.com/sbrinasha" target="_blank"><i class="fa-brands fa-github"></i></a>
+                <a href="mailto:82929@siswa.unimas.my"><i class="fa-solid fa-envelope"></i></a>
+                <a href="#"><i class="fa-brands fa-linkedin"></i></a>
+            </div>
         </div>
-        <div class="comp-card">
-            <i class="fa-solid fa-network-wired text-purple"></i>
-            <h3>IoT Architecture</h3>
-            <p>Designing low-latency, bidirectional communication layers using MQTT brokers (Eclipse Mosquitto) and JSON payloads.</p>
-        </div>
-        <div class="comp-card">
-            <i class="fa-solid fa-brain text-purple"></i>
-            <h3>Machine Learning</h3>
-            <p>Implementing Python-based sensor fusion and Random Forest classifiers (Scikit-learn) for adaptive decision-making frameworks.</p>
-        </div>
-    </section>
 
-    <section id="projects" class="projects container">
-        <div class="section-header">
-            <h2>Selected Projects</h2>
-            <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="btn primary-btn">View Code <i class="fa-solid fa-arrow-right"></i></a>
-        </div>
-        <p class="section-subtext">Take a look below at my featured FYP project.</p>
-
-        <div class="project-grid">
-            <div class="project-card large">
-                <div class="project-image-placeholder">
-                     <div class="placeholder-content">
-                         <i class="fa-solid fa-shield-halved"></i>
-                         <span>SyncGuard Dashboard Snapshot</span>
-                     </div>
+        <div class="hero-image">
+            <div class="image-wrapper">
+                <img src="https://via.placeholder.com/400x500/1e1e2f/5b21b6?text=Your+Picture" alt="Sabrina Asha">
+                <div class="floating-badge badge-left">
+                    <span class="highlight">3.30</span>
+                    <span>CGPA</span>
                 </div>
-                <div class="project-info">
-                    <span class="badge dark-badge">FYP Project</span>
-                    <h3>SyncGuard: AI-Driven Smart Home Automation</h3>
-                    <p>An adaptive safety system that eliminates "alarm fatigue" by cross-referencing local edge telemetry (BME280, Rain Sensors) with global Weather APIs. Achieved a 100% false-positive mitigation rate with 1.2s end-to-end latency.</p>
+                <div class="floating-badge badge-right">
+                    <i class="fa-solid fa-code"></i>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="about" class="technologies container">
-        <h2 class="text-center">Technologies</h2>
-        <div class="tech-grid">
-            <div class="tech-item"><i class="fa-brands fa-python"></i><span>Python</span></div>
-            <div class="tech-item"><i class="fa-brands fa-cuttlefish"></i><span>C++</span></div>
-            <div class="tech-item"><i class="fa-brands fa-java"></i><span>Java</span></div>
-            <div class="tech-item"><i class="fa-solid fa-microchip"></i><span>ESP32-S3</span></div>
-            <div class="tech-item"><i class="fa-solid fa-server"></i><span>MQTT</span></div>
-            <div class="tech-item"><i class="fa-solid fa-brain"></i><span>Scikit-learn</span></div>
-            <div class="tech-item"><i class="fa-solid fa-flask"></i><span>Flask</span></div>
-            <div class="tech-item"><i class="fa-solid fa-database"></i><span>SQLite</span></div>
+    <section id="about" class="about container section-padding">
+        <div class="about-grid">
+            <div class="about-text">
+                <span class="section-subtitle">ABOUT ME</span>
+                <h2 class="section-title">About Me</h2>
+                <p>I'm Sabrina Asha, a passionate student at the Faculty of Computer Science and Information Technology, Universiti Malaysia Sarawak (UNIMAS). I specialize in IoT and machine learning.</p>
+                <p>My Final Year Project (SyncGuard) was developed under the invaluable supervision of AP Dr. Halikul bin Lenando, showcasing my dedication to solving real-world problems with code.</p>
+                <a href="#" class="btn outline-btn"><i class="fa-solid fa-download"></i> Download CV</a>
+            </div>
+
+            <div class="about-details">
+                <div class="detail-item">
+                    <i class="fa-regular fa-user"></i>
+                    <div>
+                        <h4>Name</h4>
+                        <p>Sabrina Asha A/P Gopinathan</p>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <i class="fa-regular fa-envelope"></i>
+                    <div>
+                        <h4>Email</h4>
+                        <p>82929@siswa.unimas.my</p>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <div>
+                        <h4>Location</h4>
+                        <p>Sarawak, Malaysia</p>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                    <div>
+                        <h4>University</h4>
+                        <p>UNIMAS (FCSIT)</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
-    <footer class="footer container">
-        <div class="cta-box">
-            <h2>Want to know more?</h2>
-            <a href="mailto:82929@siswa.unimas.my" class="btn primary-btn">Contact Me <i class="fa-solid fa-arrow-right"></i></a>
+    <section id="skills" class="skills container section-padding">
+        <span class="section-subtitle">MY SKILLS</span>
+        <h2 class="section-title">Technologies I Work With</h2>
+        
+        <div class="skills-grid">
+            <div class="skill-card python">
+                <i class="fa-brands fa-python"></i>
+                <h3>Python</h3>
+                <p>AI Engine & Backend</p>
+                <div class="progress-line"></div>
+            </div>
+            <div class="skill-card cpp">
+                <i class="fa-brands fa-cuttlefish"></i>
+                <h3>C++ / Arduino</h3>
+                <p>Firmware Development</p>
+                <div class="progress-line"></div>
+            </div>
+            <div class="skill-card hardware">
+                <i class="fa-solid fa-microchip"></i>
+                <h3>ESP32-S3</h3>
+                <p>Edge Computing</p>
+                <div class="progress-line"></div>
+            </div>
+            <div class="skill-card network">
+                <i class="fa-solid fa-network-wired"></i>
+                <h3>MQTT</h3>
+                <p>Low-latency Comm.</p>
+                <div class="progress-line"></div>
+            </div>
         </div>
-        <p class="copyright">Under the supervision of AP Dr. Halikul bin Lenando &copy; 2026 Sabrina Asha.</p>
+    </section>
+
+    <section id="projects" class="projects container section-padding">
+        <div class="section-header">
+            <div>
+                <span class="section-subtitle">MY PROJECTS</span>
+                <h2 class="section-title">Featured Projects</h2>
+            </div>
+            <a href="https://github.com/sbrinasha" target="_blank" class="btn outline-btn">View All Projects</a>
+        </div>
+
+        <div class="projects-grid">
+            <div class="project-card">
+                <div class="project-img">
+                    <img src="https://via.placeholder.com/600x350/1e1e2f/5b21b6?text=SyncGuard+Dashboard" alt="SyncGuard">
+                    <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="external-link"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                </div>
+                <div class="project-content">
+                    <h3>SyncGuard (FYP)</h3>
+                    <p>An AI-Driven Smart Home Automation System for Adaptive Safety. Uses sensor fusion and Random Forest ML to eliminate false-positive alarm fatigue.</p>
+                    <div class="project-tags">
+                        <span>Python</span>
+                        <span>ESP32</span>
+                        <span>MQTT</span>
+                        <span>Scikit-learn</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact" class="contact container section-padding">
+        <span class="section-subtitle">CONTACT ME</span>
+        <div class="contact-grid">
+            <div class="contact-info">
+                <h2 class="section-title">Get In Touch</h2>
+                <p>Have a project in mind or want to work together? Feel free to send me a message.</p>
+                
+                <div class="info-list">
+                    <div class="info-item">
+                        <i class="fa-regular fa-envelope"></i>
+                        <p>82929@siswa.unimas.my</p>
+                    </div>
+                    <div class="info-item">
+                        <i class="fa-solid fa-location-dot"></i>
+                        <p>Kota Samarahan, Sarawak</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contact-form">
+                <form action="mailto:82929@siswa.unimas.my" method="POST" enctype="text/plain">
+                    <div class="form-row">
+                        <input type="text" placeholder="Your Name" required>
+                        <input type="email" placeholder="Your Email" required>
+                    </div>
+                    <input type="text" placeholder="Subject" required>
+                    <textarea rows="5" placeholder="Your Message" required></textarea>
+                    <button type="submit" class="btn primary-btn submit-btn">Send Message <i class="fa-regular fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container footer-content">
+            <p>&copy; 2026 Sabrina Asha. All rights reserved.</p>
+            <a href="#home" class="scroll-top"><i class="fa-solid fa-arrow-up"></i></a>
+        </div>
     </footer>
 
 </body>
+</html>
 </html>
