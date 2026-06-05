@@ -3,116 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sabrina Asha | Portfolio & SyncGuard Project</title>
+    <title>Sabrina Asha | Portfolio</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
     <header>
-        <div class="container header-container">
-            <h1 class="logo">Sabrina Asha</h1>
-            <nav>
-                <ul>
-                    <li><a href="#about">About Me</a></li>
-                    <li><a href="#project">SyncGuard</a></li>
-                    <li><a href="#architecture">Architecture</a></li>
-                    <li><a href="#supervisor">Acknowledgment</a></li>
-                </ul>
+        <div class="container nav-container">
+            <div class="logo"><span>>_</span> Sabrina Asha</div>
+            <nav class="nav-links">
+                <a href="#home" class="active">Home</a>
+                <a href="#projects">Projects</a>
+                <a href="#about">About</a>
             </nav>
+            <div class="nav-icons">
+                <a href="mailto:82929@siswa.unimas.my"><i class="fa-solid fa-envelope"></i></a>
+                <a href="https://github.com/sbrinasha" target="_blank"><i class="fa-brands fa-github"></i></a>
+            </div>
         </div>
     </header>
 
-    <section id="about" class="hero">
-        <div class="container hero-content">
-            <h2>Hi, I'm Sabrina Asha 👋</h2>
-            <h3>Information System Undergraduate</h3>
-            <p class="academic-info">
-                <strong>CGPA:</strong> 3.30 <br>
-                Faculty of Computer Science and Information Technology (FCSIT) <br>
-                Universiti Malaysia Sarawak (UNIMAS)
+    <section id="home" class="hero container">
+        <div class="hero-content">
+            <h1>Sabrina Asha</h1>
+            <p class="bio">
+                Information System Undergraduate and freelance developer based in Malaysia. I specialize in bridging the gap between physical hardware and intelligent software, with a strong focus on IoT development, embedded systems, and machine learning.
             </p>
-            <p class="bio">I specialize in bridging the gap between physical hardware and intelligent software, focusing on IoT development, embedded systems, and machine learning.</p>
-            <a href="#contact" class="btn primary">Get in Touch</a>
+            <p class="academic-info">
+                CGPA: 3.30 | Faculty of Computer Science and Information Technology, Universiti Malaysia Sarawak.
+            </p>
+            <span class="badge purple-badge"><i class="fa-solid fa-code"></i> IoT Developer</span>
+        </div>
+        <div class="hero-image-container">
+            <img src="https://via.placeholder.com/400x500/1e1e2f/9333ea?text=Your+Picture+Here" alt="Sabrina Asha" class="profile-img">
         </div>
     </section>
 
-    <section id="project" class="container section">
-        <h2 class="section-title">Featured Project: SyncGuard</h2>
-        <div class="text-block text-center">
-            <h3>AI-Driven Smart Home Automation System for Adaptive Safety</h3>
-            <p>Traditional smart home safety systems rely on fixed-threshold logic, frequently leading to "alarm fatigue" caused by false positives (e.g., a spilled drink triggering a window to close). SyncGuard solves this operational plateau.</p>
-            <p>By cross-referencing local edge telemetry with global meteorological forecasts, SyncGuard implements an <em>Adaptive Safety</em> framework. It intelligently distinguishes between localized, benign anomalies and genuine weather threats in real-time.</p>
+    <section class="competencies container">
+        <div class="comp-card">
+            <i class="fa-solid fa-microchip text-purple"></i>
+            <h3>Embedded Systems</h3>
+            <p>Proficient in C++ and Arduino IDE for microcontrollers like the ESP32-S3, integrating various analog sensors and actuators.</p>
+        </div>
+        <div class="comp-card">
+            <i class="fa-solid fa-network-wired text-purple"></i>
+            <h3>IoT Architecture</h3>
+            <p>Designing low-latency, bidirectional communication layers using MQTT brokers (Eclipse Mosquitto) and JSON payloads.</p>
+        </div>
+        <div class="comp-card">
+            <i class="fa-solid fa-brain text-purple"></i>
+            <h3>Machine Learning</h3>
+            <p>Implementing Python-based sensor fusion and Random Forest classifiers (Scikit-learn) for adaptive decision-making frameworks.</p>
         </div>
     </section>
 
-    <section id="tech-stack" class="bg-light">
-        <div class="container section">
-            <h2 class="section-title">Technology Stack</h2>
-            <div class="skills-container">
-                <span class="skill-badge">Python</span>
-                <span class="skill-badge">C++</span>
-                <span class="skill-badge">Java</span>
-                <span class="skill-badge">ESP32-S3</span>
-                <span class="skill-badge">Arduino IDE</span>
-                <span class="skill-badge">MQTT (Mosquitto)</span>
-                <span class="skill-badge">Scikit-learn (Random Forest)</span>
-                <span class="skill-badge">Flask</span>
-                <span class="skill-badge">SQLite</span>
-                <span class="skill-badge">OpenWeather API</span>
-            </div>
+    <section id="projects" class="projects container">
+        <div class="section-header">
+            <h2>Selected Projects</h2>
+            <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="btn primary-btn">View Code <i class="fa-solid fa-arrow-right"></i></a>
         </div>
-    </section>
+        <p class="section-subtext">Take a look below at my featured FYP project.</p>
 
-    <section id="architecture" class="container section">
-        <h2 class="section-title">Technology Architecture</h2>
-        <div class="grid cards">
-            <div class="card">
-                <div class="card-icon">📟</div>
-                <h3>1. Edge Layer</h3>
-                <p>An <strong>ESP32-S3</strong> microcontroller gathers micro-climate data using a BME280 sensor and analog rain sensors.</p>
-            </div>
-            <div class="card">
-                <div class="card-icon">📡</div>
-                <h3>2. Communication</h3>
-                <p>Telemetry is serialized into JSON and streamed via a lightweight <strong>MQTT broker</strong> for low-latency, bidirectional data flow.</p>
-            </div>
-            <div class="card">
-                <div class="card-icon">🧠</div>
-                <h3>3. AI Engine</h3>
-                <p>A Python backend fetches macro-climate forecasts. A trained <strong>Random Forest Classifier</strong> fuses the data streams to verify threats.</p>
-            </div>
-            <div class="card">
-                <div class="card-icon">💻</div>
-                <h3>4. Presentation</h3>
-                <p>A <strong>Flask-based web dashboard</strong> provides real-time visualization, AI state indication, and manual override controls.</p>
+        <div class="project-grid">
+            <div class="project-card large">
+                <div class="project-image-placeholder">
+                     <div class="placeholder-content">
+                         <i class="fa-solid fa-shield-halved"></i>
+                         <span>SyncGuard Dashboard Snapshot</span>
+                     </div>
+                </div>
+                <div class="project-info">
+                    <span class="badge dark-badge">FYP Project</span>
+                    <h3>SyncGuard: AI-Driven Smart Home Automation</h3>
+                    <p>An adaptive safety system that eliminates "alarm fatigue" by cross-referencing local edge telemetry (BME280, Rain Sensors) with global Weather APIs. Achieved a 100% false-positive mitigation rate with 1.2s end-to-end latency.</p>
+                </div>
             </div>
         </div>
     </section>
 
-    <section id="supervisor" class="bg-light">
-        <div class="container section text-center">
-            <h2 class="section-title">Acknowledgment</h2>
-            <div class="text-block">
-                <p>This project was conducted under the invaluable guidance and supervision of:</p>
-                <h3 class="supervisor-name">Associate Professor Dr. Halikul bin Lenando</h3>
-                <p>Faculty of Computer Science and Information Technology<br>Universiti Malaysia Sarawak</p>
-            </div>
+    <section id="about" class="technologies container">
+        <h2 class="text-center">Technologies</h2>
+        <div class="tech-grid">
+            <div class="tech-item"><i class="fa-brands fa-python"></i><span>Python</span></div>
+            <div class="tech-item"><i class="fa-brands fa-cuttlefish"></i><span>C++</span></div>
+            <div class="tech-item"><i class="fa-brands fa-java"></i><span>Java</span></div>
+            <div class="tech-item"><i class="fa-solid fa-microchip"></i><span>ESP32-S3</span></div>
+            <div class="tech-item"><i class="fa-solid fa-server"></i><span>MQTT</span></div>
+            <div class="tech-item"><i class="fa-solid fa-brain"></i><span>Scikit-learn</span></div>
+            <div class="tech-item"><i class="fa-solid fa-flask"></i><span>Flask</span></div>
+            <div class="tech-item"><i class="fa-solid fa-database"></i><span>SQLite</span></div>
         </div>
     </section>
 
-    <footer id="contact">
-        <div class="container section text-center">
-            <h2 class="section-title text-white">Let's Connect</h2>
-            <p class="footer-text">Interested in my work or have a question about SyncGuard? Feel free to reach out or explore the code.</p>
-            <div class="contact-links">
-                <a href="mailto:82929@siswa.unimas.my" class="btn primary">Email Me</a>
-                <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="btn outline outline-white">View GitHub Repository</a>
-            </div>
-            <div class="footer-copyright">
-                <p>&copy; 2026 Sabrina Asha A/P Gopinathan. Built for FYP Showcase.</p>
-            </div>
+    <footer class="footer container">
+        <div class="cta-box">
+            <h2>Want to know more?</h2>
+            <a href="mailto:82929@siswa.unimas.my" class="btn primary-btn">Contact Me <i class="fa-solid fa-arrow-right"></i></a>
         </div>
+        <p class="copyright">Under the supervision of AP Dr. Halikul bin Lenando &copy; 2026 Sabrina Asha.</p>
     </footer>
 
 </body>
