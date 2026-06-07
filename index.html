@@ -1,19 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sabrina Asha | Portfolio</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 </head>
+
 <body>
 
     <header>
         <div class="container nav-container">
             <a href="#" class="logo">Sabrina.</a>
-            
+
             <nav class="nav-menu">
                 <a href="#home" class="active">Home</a>
                 <a href="#about">About</a>
@@ -34,8 +40,9 @@
             <span class="role-badge">Information System Undergraduate</span>
             <h1>Sabrina <span class="text-gradient">Asha</span></h1>
             <h2>IoT & Software Developer</h2>
-            <p>I build intelligent, responsive systems bridging the gap between physical hardware and software, focusing on IoT development, embedded systems, and machine learning.</p>
-            
+            <p>I build intelligent, responsive systems bridging the gap between physical hardware and software, focusing
+                on IoT development, embedded systems, and machine learning.</p>
+
             <div class="hero-btns">
                 <a href="#projects" class="btn primary-btn">View My Work <i class="fa-solid fa-arrow-right"></i></a>
                 <a href="#contact" class="btn outline-btn">Contact Me</a>
@@ -50,11 +57,11 @@
 
         <div class="hero-image">
             <div class="image-wrapper">
-                <img src="https://via.placeholder.com/400x500/1e1e2f/5b21b6?text=Your+Picture" alt="Sabrina Asha">
-                <div class="floating-badge badge-left">
+                <img src="images/me.jpeg" alt="Sabrina Asha">
+                <!-- <div class="floating-badge badge-left">
                     <span class="highlight">3.30</span>
                     <span>CGPA</span>
-                </div>
+                </div> -->
                 <div class="floating-badge badge-right">
                     <i class="fa-solid fa-code"></i>
                 </div>
@@ -67,8 +74,10 @@
             <div class="about-text">
                 <span class="section-subtitle">ABOUT ME</span>
                 <h2 class="section-title">About Me</h2>
-                <p>I'm Sabrina Asha, a passionate student at the Faculty of Computer Science and Information Technology, Universiti Malaysia Sarawak (UNIMAS). I specialize in IoT and machine learning.</p>
-                <p>My Final Year Project (SyncGuard) was developed under the invaluable supervision of AP Dr. Halikul bin Lenando, showcasing my dedication to solving real-world problems with code.</p>
+                <p>I'm Sabrina Asha, a passionate student at the Faculty of Computer Science and Information Technology,
+                    Universiti Malaysia Sarawak (UNIMAS). I specialize in IoT and machine learning.</p>
+                <p>My Final Year Project (SyncGuard) was developed under the invaluable supervision of AP Dr. Halikul
+                    bin Lenando, showcasing my dedication to solving real-world problems with code.</p>
                 <a href="#" class="btn outline-btn"><i class="fa-solid fa-download"></i> Download CV</a>
             </div>
 
@@ -108,7 +117,7 @@
     <section id="skills" class="skills container section-padding">
         <span class="section-subtitle">MY SKILLS</span>
         <h2 class="section-title">Technologies I Work With</h2>
-        
+
         <div class="skills-grid">
             <div class="skill-card python">
                 <i class="fa-brands fa-python"></i>
@@ -149,12 +158,14 @@
         <div class="projects-grid">
             <div class="project-card">
                 <div class="project-img">
-                    <img src="https://via.placeholder.com/600x350/1e1e2f/5b21b6?text=SyncGuard+Dashboard" alt="SyncGuard">
-                    <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="external-link"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                    <img src="images/sync-guard.jpeg" alt="SyncGuard">
+                    <a href="https://github.com/sbrinasha/Sync-Guard" target="_blank" class="external-link"><i
+                            class="fa-solid fa-arrow-up-right-from-square"></i></a>
                 </div>
                 <div class="project-content">
                     <h3>SyncGuard (FYP)</h3>
-                    <p>An AI-Driven Smart Home Automation System for Adaptive Safety. Uses sensor fusion and Random Forest ML to eliminate false-positive alarm fatigue.</p>
+                    <p>An AI-Driven Smart Home Automation System for Adaptive Safety. Uses sensor fusion and Random
+                        Forest ML to eliminate false-positive alarm fatigue.</p>
                     <div class="project-tags">
                         <span>Python</span>
                         <span>ESP32</span>
@@ -172,30 +183,26 @@
             <div class="contact-info">
                 <h2 class="section-title">Get In Touch</h2>
                 <p>Have a project in mind or want to work together? Feel free to send me a message.</p>
-                
+
                 <div class="info-list">
-                    <div class="info-item">
+                    <div class="info-item email-item">
                         <i class="fa-regular fa-envelope"></i>
-                        <p>82929@siswa.unimas.my</p>
+                        <div>
+                            <h4>Email (Click to copy)</h4>
+                            <p class="copyable-email" data-email="82929@siswa.unimas.my">82929@siswa.unimas.my</p>
+                        </div>
                     </div>
                     <div class="info-item">
                         <i class="fa-solid fa-location-dot"></i>
-                        <p>Kota Samarahan, Sarawak</p>
+                        <div>
+                            <h4>Location</h4>
+                            <p>Kota Samarahan, Sarawak</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="contact-form">
-                <form action="mailto:82929@siswa.unimas.my" method="POST" enctype="text/plain">
-                    <div class="form-row">
-                        <input type="text" placeholder="Your Name" required>
-                        <input type="email" placeholder="Your Email" required>
-                    </div>
-                    <input type="text" placeholder="Subject" required>
-                    <textarea rows="5" placeholder="Your Message" required></textarea>
-                    <button type="submit" class="btn primary-btn submit-btn">Send Message <i class="fa-regular fa-paper-plane"></i></button>
-                </form>
-            </div>
+            <div id="map" class="contact-map"></div>
         </div>
     </section>
 
@@ -206,5 +213,95 @@
         </div>
     </footer>
 
+    <script>
+        // Mobile menu toggle
+        const mobileToggle = document.querySelector('.mobile-toggle');
+        const navMenu = document.querySelector('.nav-menu');
+
+        mobileToggle.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            mobileToggle.classList.toggle('active');
+        });
+
+        // Close mobile menu when a link is clicked
+        const navLinks = document.querySelectorAll('.nav-menu a');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                navMenu.classList.remove('active');
+                mobileToggle.classList.remove('active');
+            });
+        });
+
+        // Set active nav link on scroll
+        window.addEventListener('scroll', () => {
+            let current = '';
+            const sections = document.querySelectorAll('section');
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 60) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').slice(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Copy email to clipboard with SweetAlert
+        const copyableEmail = document.querySelector('.copyable-email');
+        if (copyableEmail) {
+            copyableEmail.addEventListener('click', () => {
+                const email = copyableEmail.getAttribute('data-email');
+                navigator.clipboard.writeText(email).then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Copied!',
+                        text: 'Email copied to clipboard: ' + email,
+                        timer: 2000,
+                        timerProgressBar: true,
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false
+                    });
+                }).catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Failed',
+                        text: 'Could not copy email',
+                        timer: 2000
+                    });
+                });
+            });
+        }
+
+        // Initialize map with Leaflet (free alternative to Google Maps)
+        function initMap() {
+            const lat = 1.4641605034098844; // Replace with actual latitude
+            const lng = 110.43020760626976; // Replace with actual longitude
+
+            const mapDiv = document.getElementById('map');
+            if (mapDiv && typeof L !== 'undefined') {
+                const map = L.map('map').setView([lat, lng], 13);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    maxZoom: 19
+                }).addTo(map);
+                L.marker([lat, lng]).addTo(map).bindPopup('Sabrina Asha Location');
+            }
+        }
+
+        // Initialize map when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMap);
+        } else {
+            initMap();
+        }
+    </script>
+
 </body>
+
 </html>
