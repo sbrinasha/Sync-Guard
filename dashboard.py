@@ -50,7 +50,7 @@ app.config["SECRET_KEY"] = "sync-guard-secret-2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MQTT Configuration — sourced from Sync_Guard_Sketch/config.h
-MQTT_BROKER = _config.get("MQTT_SERVER", "192.168.1.101")
+MQTT_BROKER = _config.get("MQTT_SERVER", "172.20.10.3")
 MQTT_PORT = int(_config.get("MQTT_PORT", 1883))
 WIFI_SSID = _config.get("WIFI_SSID", "Unknown")
 
