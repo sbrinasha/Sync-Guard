@@ -67,6 +67,8 @@ TOPIC_SERVO_STATE = "syncguard/servo/state"
 
 # --- SENT to ESP32 (dashboard → syncguard) ---
 TOPIC_SERVO_CMD = "syncguard/servo/change-state"
+TOPIC_SERVO_ACK = "syncguard/servo/ack"  # ACK from ESP32 after servo moves
+TOPIC_LED_WARNING = "syncguard/led/warning"  # "on" = dismissed warning (yellow LED)
 
 MQTT_TOPICS = [
     (TOPIC_STATUS, 0),
@@ -77,6 +79,7 @@ MQTT_TOPICS = [
     (TOPIC_RAIN, 0),
     (TOPIC_RAIN_ANALOG, 0),
     (TOPIC_SERVO_STATE, 0),
+    (TOPIC_SERVO_ACK, 0),
 ]
 
 # Heartbeat watchdog — mark ESP offline if no heartbeat within this many seconds
@@ -94,6 +97,13 @@ esp32_status = {
     "uptime": None,
     "heartbeat_count": None,
     "sensor_data": None,
+}
+
+# Browser geolocation (more accurate than IP-based)
+browser_location = {
+    "lat": None,
+    "lon": None,
+    "source": None,  # "browser" or "ip"
 }
 
 # ===== Sensor Readings (all ESP32 sensor values stored here) =====
@@ -277,6 +287,10 @@ def on_message(client, userdata, msg):
         sensor_readings["servo_state"] = payload  # "open" or "closed"
         socketio.emit("servo_update", {"state": payload, "timestamp": timestamp})
 
+    elif topic == TOPIC_SERVO_ACK:
+        # Forward ACK to browser so JS can compute round-trip latency
+        socketio.emit("servo_ack", {"state": payload, "timestamp": timestamp})
+
 
 def _emit_sensor_update(timestamp):
     """Emit the current sensor_readings snapshot to all connected clients.
@@ -362,13 +376,24 @@ def fetch_weather_data():
     """Fetch weather data from OpenWeather API"""
     global weather_data
 
-    # Get location
-    location = get_location()
-    if not location:
-        print("Could not determine location")
-        return
+    # Use browser location if available, otherwise fall back to IP geolocation
+    lat, lon = None, None
+    location_source = None
 
-    lat, lon = location
+    if browser_location["lat"] is not None and browser_location["lon"] is not None:
+        lat, lon = browser_location["lat"], browser_location["lon"]
+        location_source = "browser"
+    else:
+        location = get_location()
+        if location:
+            lat, lon = location
+            location_source = "ip"
+        else:
+            print("Could not determine location")
+            return
+
+    if lat is None or lon is None:
+        return
 
     try:
         # OpenWeather API endpoint
@@ -394,7 +419,7 @@ def fetch_weather_data():
 
         timestamp = datetime.now().strftime("%H:%M:%S")
         print(
-            f"[{timestamp}] Weather data updated: {weather_data['location']} - {weather_data['description']}, {weather_data['temp']}°C"
+            f"[{timestamp}] Weather data updated (via {location_source}): {weather_data['location']} - {weather_data['description']}, {weather_data['temp']}°C"
         )
 
         # Emit to all connected clients
@@ -631,6 +656,48 @@ def handle_set_weather_simulation(data):
         fetch_weather_data()  # Immediately push live data to all clients
 
     socketio.emit("weather_simulation_mode", {"active": active})
+
+
+@socketio.on("clear_warning_led")
+def handle_clear_warning_led():
+    """Turn off yellow LED — triggered by safe AI result or manual servo control."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    mqtt_client.publish(TOPIC_LED_WARNING, "off")
+    print(f"[{timestamp}] Warning LED cleared (yellow off)")
+    socketio.emit(
+        "mqtt_message",
+        {"topic": TOPIC_LED_WARNING, "payload": "off", "timestamp": timestamp},
+    )
+
+
+@socketio.on("warning_dismissed")
+def handle_warning_dismissed():
+    """User dismissed an AI warning — light up yellow LED on ESP32 (GPIO 11)."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    mqtt_client.publish(TOPIC_LED_WARNING, "on")
+    print(f"[{timestamp}] Warning dismissed — yellow LED activated")
+    socketio.emit(
+        "mqtt_message",
+        {"topic": TOPIC_LED_WARNING, "payload": "on", "timestamp": timestamp},
+    )
+
+
+@socketio.on("set_location")
+def handle_set_location(data):
+    """Receive browser geolocation from client."""
+    global browser_location
+    lat = data.get("lat")
+    lon = data.get("lon")
+    if lat is not None and lon is not None:
+        browser_location["lat"] = lat
+        browser_location["lon"] = lon
+        browser_location["source"] = "browser"
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"[{timestamp}] Browser location received: {lat:.4f}, {lon:.4f}")
+        # Immediately fetch weather with new location
+        fetch_weather_data()
+    else:
+        print("Invalid location data received")
 
 
 @socketio.on("set_esp32_simulation")

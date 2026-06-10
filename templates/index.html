@@ -815,6 +815,10 @@
                             <button class="btn-open" onclick="servoControl('open')">Open</button>
                             <button class="btn-close" onclick="servoControl('close')">Close</button>
                         </div>
+                        <div style="margin-top: 10px; font-size: 0.75rem; color: #7f8c8d; text-align: center;">
+                            Round-trip latency: <span id="servo-latency"
+                                style="font-weight: 700; color: #34495e;">--</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -869,8 +873,8 @@
                     </div>
                 </div>
             </div>
-            <p style="font-size: 0.82rem; color: #7f8c8d; margin-bottom: 16px;">Close the window now, or dismiss to take
-                no action.</p>
+            <p class="modal-footer-note" style="font-size: 0.82rem; color: #7f8c8d; margin-bottom: 16px;">Close the
+                window now, or dismiss to take no action. Dismissing will light the yellow LED on the device.</p>
             <div class="modal-btn-group">
                 <button onclick="confirmCloseWindow()" style="background: #e74c3c; color: white;">Close Window</button>
                 <button onclick="dismissWarning()">Dismiss</button>
@@ -890,6 +894,23 @@
         socket.on('connect', () => {
             console.log('🔌 Connected to Flask server');
             socket.emit('request_status'); // Request current status on connect
+
+            // Request browser geolocation for accurate weather
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        socket.emit('set_location', { lat: lat, lon: lon });
+                        console.log(`📍 Browser location sent: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                    },
+                    (error) => {
+                        console.warn('📍 Geolocation denied or unavailable:', error.message);
+                    }
+                );
+            } else {
+                console.warn('📍 Geolocation not supported by browser');
+            }
         });
 
         socket.on('disconnect', () => {
@@ -1121,10 +1142,26 @@
         }
 
         // --- SERVO CONTROL ---
+        let _servoCommandSentAt = null;
+
         function servoControl(state) {
+            _servoCommandSentAt = performance.now();
             socket.emit('servo_control', { state: state });
+            socket.emit('clear_warning_led');
             console.log(`[${getTimestamp()}] Servo command sent: ${state}`);
         }
+
+        // ACK from ESP32 via MQTT → Flask → SocketIO
+        socket.on('servo_ack', (data) => {
+            if (_servoCommandSentAt !== null) {
+                const latencyMs = Math.round(performance.now() - _servoCommandSentAt);
+                _servoCommandSentAt = null;
+                const el = document.getElementById('servo-latency');
+                el.innerText = `${latencyMs} ms`;
+                el.style.color = latencyMs < 300 ? '#27ae60' : latencyMs < 800 ? '#f1c40f' : '#e74c3c';
+                console.log(`[${getTimestamp()}] Servo ACK received (${data.state}) — RTT: ${latencyMs} ms`);
+            }
+        });
 
         // --- AI RISK ENGINE: INTERVAL TIMER ---
         let checkIntervalMinutes = 30;
@@ -1374,16 +1411,23 @@
                 label.innerText = 'CAUTION';
                 label.style.color = '#f39c12';
                 box.style.background = '#fef9e7';
-                actEl.innerText = 'Monitoring \u2014 no action';
-                actEl.style.color = '#f39c12';
                 playAlarm();
-                showToast(`Caution: ${reason}`, '#f39c12');
+                if (servo === 'warning') {
+                    actEl.innerText = 'Awaiting your decision';
+                    actEl.style.color = '#f39c12';
+                    showWarningConfirmModal(result, reason, true);
+                } else {
+                    actEl.innerText = 'Monitoring \u2014 no action';
+                    actEl.style.color = '#f39c12';
+                    showToast(`Caution: ${reason}`, '#f39c12');
+                }
             } else {
                 label.innerText = 'OPEN';
                 label.style.color = '#2ecc71';
                 box.style.background = '#d5f5e3';
                 actEl.innerText = 'No action \u2014 safe';
                 actEl.style.color = '#2ecc71';
+                socket.emit('clear_warning_led');
             }
         }
 
@@ -1405,10 +1449,22 @@
 
         let pendingCloseResult = null;
 
-        function showWarningConfirmModal(result, reason) {
+        function showWarningConfirmModal(result, reason, isCaution) {
             pendingCloseResult = result;
             const mlNames = ['OPEN', 'WARNING', 'CLOSE'];
             const probs = result.probabilities;
+            // Adapt title based on caution vs hard close
+            const header = document.querySelector('#warning-confirm-modal h3');
+            const footer = document.querySelector('#warning-confirm-modal .modal-footer-note');
+            if (isCaution) {
+                header.style.color = '#f39c12';
+                header.innerHTML = '&#9888; Caution \u2014 Review Required';
+                if (footer) footer.innerText = 'Close the window as a precaution, or dismiss to keep monitoring. Dismissing will light the yellow LED on the device.';
+            } else {
+                header.style.color = '#e74c3c';
+                header.innerHTML = '&#9888; Rain Alert \u2014 Action Required';
+                if (footer) footer.innerText = 'Close the window now, or dismiss to take no action. Dismissing will light the yellow LED on the device.';
+            }
             document.getElementById('warn-modal-reason').innerText = reason;
             document.getElementById('warn-modal-ml').innerText = `${mlNames[result.prediction]} \u2014 ${(probs[result.prediction] * 100).toFixed(0)}% confidence`;
             const wr = result.weather_snapshot;
@@ -1431,8 +1487,9 @@
         }
 
         function dismissWarning() {
-            document.getElementById('decision-action').innerText = 'Dismissed \u2014 no action';
-            document.getElementById('decision-action').style.color = '#7f8c8d';
+            socket.emit('warning_dismissed');
+            document.getElementById('decision-action').innerText = 'Warning dismissed \u2014 yellow LED lit';
+            document.getElementById('decision-action').style.color = '#f39c12';
             document.getElementById('warning-confirm-modal').classList.remove('active');
             pendingCloseResult = null;
         }

@@ -318,6 +318,21 @@
             document.getElementById('statusIndicator').className =
                 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
             document.getElementById('statusText').textContent = 'Connected';
+
+            // Request browser geolocation for accurate weather
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        socket.emit('set_location', { lat: lat, lon: lon });
+                        console.log(`📍 Browser location sent: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                    },
+                    (error) => {
+                        console.warn('📍 Geolocation denied or unavailable:', error.message);
+                    }
+                );
+            }
         });
 
         socket.on('disconnect', () => {

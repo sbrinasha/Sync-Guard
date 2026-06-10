@@ -33,9 +33,11 @@
 #define MQTT_TOPIC_HUMIDITY    "syncguard/humidity"
 #define MQTT_TOPIC_HEARTBEAT   "syncguard/heartbeat"
 #define MQTT_TOPIC_SERVO_POS   "syncguard/servo/state"
+#define MQTT_TOPIC_SERVO_ACK   "syncguard/servo/ack"
 
 // --- RECEIVED (Dashboard → Broker → ESP32) ---
-#define MQTT_TOPIC_SERVO_STATE "syncguard/servo/change-state"
+#define MQTT_TOPIC_SERVO_STATE   "syncguard/servo/change-state"
+#define MQTT_TOPIC_LED_WARNING   "syncguard/led/warning"  // Payload: "on" = dismissed warning
 
 // --- Publish Interval ---
 #define MQTT_PUBLISH_INTERVAL  5000   // Interval (ms) for all sensors to publish data
@@ -207,6 +209,7 @@ void connectMQTT() {
     mqtt.publish(MQTT_TOPIC_STATUS, "online");
     mqtt.subscribe(MQTT_TOPIC_DATA);
     mqtt.subscribe(MQTT_TOPIC_SERVO_STATE);  // Receive servo commands from dashboard
+    mqtt.subscribe(MQTT_TOPIC_LED_WARNING);  // Receive dismissed-warning LED command
   } else {
     Serial.print("Failed, rc=");
     Serial.println(mqtt.state());
@@ -231,6 +234,29 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       if (!servoOpen) toggleServo();
     } else if (message == "close" || message == "closed" || message == "180") {
       if (servoOpen) toggleServo();
+    }
+    // Publish ACK so the dashboard can measure round-trip latency
+    mqtt.publish(MQTT_TOPIC_SERVO_ACK, servoOpen ? "open" : "closed");
+  }
+
+  // --- Handle dismissed-warning LED command ---
+  // Turns yellow LED on (GPIO 11) to indicate AI warned but user dismissed.
+  // Clears green and red — yellow is the "acknowledged but ignored" state.
+  if (String(topic) == MQTT_TOPIC_LED_WARNING) {
+    if (message == "on") {
+      digitalWrite(LED_GREEN, LOW);
+      digitalWrite(LED_RED, LOW);
+      digitalWrite(LED_YELLOW, HIGH);
+      Serial.println("LED: WARNING DISMISSED (yellow on)");
+    } else if (message == "off") {
+      digitalWrite(LED_YELLOW, LOW);
+      // Restore LED state based on servo position
+      if (servoOpen) {
+        digitalWrite(LED_GREEN, HIGH);
+      } else {
+        digitalWrite(LED_RED, HIGH);
+      }
+      Serial.println("LED: Warning dismissed LED cleared");
     }
   }
 }
