@@ -686,8 +686,19 @@
                 <span class="sensor-value" id="api-clouds">--</span>
             </div>
             <p style="font-size: 0.8rem; color: #7f8c8d;">Updated: <span id="api-updated">--</span></p>
-            <button class="btn-simulate" onclick="refreshWeather()"
-                style="background-color: #3498db; width: 100%; margin-top: 10px;">Refresh Weather</button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="location-search-input" placeholder="Search location..."
+                    onkeydown="if(event.key==='Enter') searchLocation()"
+                    style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;">
+                <button class="btn-simulate" onclick="searchLocation()"
+                    style="background-color: #9b59b6; padding: 8px 12px;">🔍 Search</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button class="btn-simulate" onclick="getLocation()"
+                    style="background-color: #27ae60; flex: 1;"> Current Location</button>
+                <button class="btn-simulate" onclick="refreshWeather()"
+                    style="background-color: #3498db; flex: 1;"> Refresh Weather</button>
+            </div>
         </div>
 
         <div class="card" style="grid-column: 1 / -1;">
@@ -1050,6 +1061,68 @@
         function refreshWeather() {
             console.log(`[${getTimestamp()}] Manually requesting weather data...`);
             socket.emit('request_weather');
+        }
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                console.log(`[${getTimestamp()}] Requesting browser geolocation...`);
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        socket.emit('set_location', { lat: lat, lon: lon });
+                        console.log(`[${getTimestamp()}] 📍 Browser location acquired and sent: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+                        // Immediately refresh weather with new location
+                        setTimeout(() => refreshWeather(), 500);
+                    },
+                    (error) => {
+                        console.warn(`[${getTimestamp()}] 📍 Geolocation request failed:`, error.message);
+                        alert(`Location access denied or unavailable: ${error.message}`);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                alert('Geolocation is not supported by your browser.');
+                console.warn('📍 Geolocation not supported');
+            }
+        }
+
+        function searchLocation() {
+            const locationInput = document.getElementById('location-search-input').value.trim();
+            if (!locationInput) {
+                alert('Please enter a location name');
+                return;
+            }
+
+            const OPENWEATHER_API_KEY = "120d0873a392ff37d15d9562aa258a4f";
+            const url = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(locationInput)}&limit=1&appid=${OPENWEATHER_API_KEY}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length === 0) {
+                        alert(`Location "${locationInput}" not found. Please try another search.`);
+                        console.warn(`[${getTimestamp()}] 🔍 Location search returned no results for: ${locationInput}`);
+                        return;
+                    }
+
+                    const location = data[0];
+                    const lat = location.lat;
+                    const lon = location.lon;
+                    const name = location.name || "Unknown";
+                    const country = location.country || "";
+
+                    socket.emit('set_location', { lat: lat, lon: lon });
+                    console.log(`[${getTimestamp()}] 🔍 Location search: ${name}${country ? ', ' + country : ''} → Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`);
+                    
+                    // Clear input and refresh weather with new location
+                    document.getElementById('location-search-input').value = '';
+                    setTimeout(() => refreshWeather(), 500);
+                })
+                .catch(error => {
+                    console.error(`[${getTimestamp()}] 🔍 Location search error:`, error);
+                    alert(`Error searching location: ${error.message}`);
+                });
         }
 
         // --- LIVE CLOCK LOGIC ---

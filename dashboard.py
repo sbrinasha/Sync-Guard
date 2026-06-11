@@ -798,7 +798,7 @@ def handle_run_ai_check():
         )
         weather_rain = float(current_weather.get("rain") or 0)
         weather_desc = (current_weather.get("description") or "").lower()
-        weather_is_raining = weather_rain > 0 or "rain" in weather_desc
+        weather_is_raining = weather_rain > 0 or "rain" in weather_desc or "overcast" in weather_desc
 
         emit(
             "ai_check_result",
