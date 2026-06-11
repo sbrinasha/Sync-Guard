@@ -800,6 +800,11 @@ def handle_run_ai_check():
         weather_desc = (current_weather.get("description") or "").lower()
         weather_is_raining = weather_rain > 0 or "rain" in weather_desc or "overcast" in weather_desc
 
+        # Adaptive Mode: If ML returns safe/warning (0 or 1) OR weather detects rain/overcast,
+        # force decision to cautious (1 = warning state)
+        if prediction in (0, 1) or weather_is_raining:
+            prediction = 1  # Force to cautious/warning state
+
         emit(
             "ai_check_result",
             {
